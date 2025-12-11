@@ -97,22 +97,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header dengan gradient
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF1453A3), Color(0xFF2E78D4)],
-                ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
+      body: Column(
+        children: [
+          // Header dengan gradient - Full screen
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF1453A3), Color(0xFF2E78D4)],
               ),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
+              ),
+            ),
+            child: SafeArea(
+              bottom: false,
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Row(
@@ -125,6 +126,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text(
                             'Notifikasi',
@@ -134,14 +136,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          if (_unreadCount > 0)
-                            Text(
-                              '$_unreadCount pesan belum dibaca',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _unreadCount > 0 
+                              ? '$_unreadCount pesan belum dibaca'
+                              : 'Semua pesan sudah dibaca',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
                             ),
+                          ),
                         ],
                       ),
                     ),
@@ -155,60 +159,60 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
               ),
             ),
+          ),
 
-            // Notification List dengan grouping
-            Expanded(
-              child: _notifications.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.notifications_off_outlined, size: 80, color: Colors.grey[400]),
-                          const SizedBox(height: 16),
-                          Text('Tidak ada notifikasi', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-                        ],
-                      ),
-                    )
-                  : ListView(
-                      padding: const EdgeInsets.all(16),
+          // Notification List dengan grouping
+          Expanded(
+            child: _notifications.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Recent notifications
-                        if (recentNotifications.isNotEmpty) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4, bottom: 12),
-                            child: Text(
-                              'Terbaru',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          ...recentNotifications.map((notification) => _buildNotificationCard(notification)),
-                        ],
-                        
-                        // Older notifications
-                        if (olderNotifications.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4, bottom: 12),
-                            child: Text(
-                              'Sebelumnya',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          ...olderNotifications.map((notification) => _buildNotificationCard(notification)),
-                        ],
+                        Icon(Icons.notifications_off_outlined, size: 80, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text('Tidak ada notifikasi', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
                       ],
                     ),
-            ),
-          ],
-        ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      // Recent notifications
+                      if (recentNotifications.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 12),
+                          child: Text(
+                            'Terbaru',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        ...recentNotifications.map((notification) => _buildNotificationCard(notification)),
+                      ],
+                      
+                      // Older notifications
+                      if (olderNotifications.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4, bottom: 12),
+                          child: Text(
+                            'Sebelumnya',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        ...olderNotifications.map((notification) => _buildNotificationCard(notification)),
+                      ],
+                    ],
+                  ),
+          ),
+        ],
       ),
       bottomNavigationBar: _buildBottomNavBar(),
     );
@@ -295,16 +299,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: notification.isRead ? Colors.white : const Color(0xFFF0F7FF),
+          color: notification.isRead ? Colors.white : bgColor.withOpacity(0.05),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: notification.isRead ? Colors.grey[200]! : const Color(0xFF1453A3).withValues(alpha: 0.2),
+            color: notification.isRead ? Colors.grey[200]! : bgColor.withOpacity(0.2),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
@@ -324,15 +328,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Avatar dengan icon
+                  // Avatar dengan icon - FIX WARNA
                   Container(
-                    width: 50,
-                    height: 50,
+                    width: 52,
+                    height: 52,
                     decoration: BoxDecoration(
-                      color: bgColor.withValues(alpha: 0.15),
+                      color: bgColor.withOpacity(0.12),
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: bgColor.withOpacity(0.3),
+                        width: 1.5,
+                      ),
                     ),
-                    child: Icon(iconData, color: iconColor, size: 28),
+                    child: Icon(iconData, color: iconColor, size: 26),
                   ),
                   const SizedBox(width: 16),
                   // Content
@@ -345,10 +353,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             Expanded(
                               child: Text(
                                 notification.sender,
-                                style: const TextStyle(
-                                  fontSize: 16,
+                                style: TextStyle(
+                                  fontSize: 15,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                  color: Colors.grey[900],
                                 ),
                               ),
                             ),
@@ -356,9 +364,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               Container(
                                 width: 10,
                                 height: 10,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF1453A3),
+                                decoration: BoxDecoration(
+                                  color: bgColor,
                                   shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: bgColor.withOpacity(0.4),
+                                      blurRadius: 4,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
                                 ),
                               ),
                           ],
@@ -367,7 +382,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Text(
                           notification.message,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             color: Colors.grey[700],
                             height: 1.4,
                           ),
@@ -377,7 +392,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Icon(Icons.access_time, size: 12, color: Colors.grey[500]),
+                            Icon(Icons.access_time, size: 13, color: Colors.grey[500]),
                             const SizedBox(width: 4),
                             Text(
                               _formatTimestamp(notification.timestamp),
@@ -472,7 +487,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: bgColor.withValues(alpha: 0.15),
+                      color: bgColor.withOpacity(0.15), // FIX: ganti withValues jadi withOpacity
                       shape: BoxShape.circle,
                     ),
                     child: Icon(iconData, color: iconColor, size: 40),
@@ -552,7 +567,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1), // FIX: ganti withValues jadi withOpacity
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -565,11 +580,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
+          if (_selectedIndex == index) return;
+          
           setState(() {
             _selectedIndex = index;
           });
-          
-          // Navigasi berdasarkan index
+
           switch (index) {
             case 0:
               Navigator.pushReplacement(
@@ -590,7 +606,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               );
               break;
             case 3:
-              // Sudah di halaman Notifikasi
+              // Sudah di Notifications
               break;
           }
         },
@@ -608,8 +624,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             label: 'Beranda',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.show_chart_outlined),
-            activeIcon: Icon(Icons.show_chart),
+            icon: Icon(Icons.bar_chart_outlined),
+            activeIcon: Icon(Icons.bar_chart),
             label: 'Grafik',
           ),
           BottomNavigationBarItem(

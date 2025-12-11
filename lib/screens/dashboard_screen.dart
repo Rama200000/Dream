@@ -22,6 +22,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _userName = 'User Name';
   String _userEmail = 'user@example.com';
+  String? _userPhotoUrl; // NEW: Tambah photo URL
 
   @override
   void initState() {
@@ -35,6 +36,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _userName = userInfo['displayName'] ?? 'User Name';
         _userEmail = userInfo['email'] ?? 'user@example.com';
+        _userPhotoUrl = userInfo['photoUrl']; // NEW: Load photo URL
       });
     }
   }
@@ -57,9 +59,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ).then((_) => setState(() => _selectedIndex = 0));
         break;
       case 2:
+        // FIX: Ganti CreateReportScreen menjadi ReportsScreen
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const CreateReportScreen()),
+          MaterialPageRoute(builder: (context) => const ReportsScreen()),
         ).then((_) => setState(() => _selectedIndex = 0));
         break;
       case 3:
@@ -114,7 +117,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+            // Header - FIX: Gunakan foto profil dari asset
             Container(
               padding: const EdgeInsets.all(20),
               child: Row(
@@ -126,16 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                   const SizedBox(width: 12),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE74C3C),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.school_outlined, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 12),
+                  // Logo Perisai DIHAPUS - langsung ke text
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,8 +163,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                     child: const CircleAvatar(
                       radius: 20,
-                      backgroundColor: Color(0xFFE74C3C),
-                      child: Icon(Icons.person, color: Colors.white, size: 24),
+                      backgroundImage: AssetImage('assets/profil.png'),
+                      backgroundColor: Colors.transparent,
                     ),
                   ),
                 ],
@@ -192,14 +186,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Statistics Grid dengan tombol fungsional
+                      // Statistics Grid - FIX childAspectRatio
                       GridView.count(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         crossAxisCount: 2,
                         mainAxisSpacing: 16,
                         crossAxisSpacing: 16,
-                        childAspectRatio: 1.3,
+                        childAspectRatio: 1.15, // Ubah dari 1.3 ke 1.15 (lebih tinggi)
                         children: [
                           _buildStatCard(
                             icon: Icons.description,
@@ -302,14 +296,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                       // News Cards
                       _buildNewsCard(
-                        title: 'Politeknik Negeri Lampung Raih Akreditasi Unggul',
+                        title:
+                            'Politeknik Negeri Lampung Raih Akreditasi Unggul',
                         date: '24 Desember 2024',
                         category: 'Prestasi',
                         imageUrl: 'https://via.placeholder.com/150',
                       ),
                       const SizedBox(height: 12),
                       _buildNewsCard(
-                        title: 'Workshop Pengembangan Aplikasi Mobile di Polinela',
+                        title:
+                            'Workshop Pengembangan Aplikasi Mobile di Polinela',
                         date: '22 Desember 2024',
                         category: 'Kegiatan',
                         imageUrl: 'https://via.placeholder.com/150',
@@ -388,17 +384,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       bottomNavigationBar: _buildBottomNavBar(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CreateReportScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF1453A3),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 
@@ -447,12 +432,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
+                // FIX: Tambah maxLines dan overflow handling
                 Text(
                   label,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 11, // Kurangi dari 12 ke 11
                     color: Colors.black54,
+                    height: 1.2, // Tambahkan line height
                   ),
+                  maxLines: 2, // Max 2 baris
+                  overflow: TextOverflow.ellipsis, // Tambah ... jika terlalu panjang
                 ),
               ],
             ),
@@ -507,7 +496,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF1453A3).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -577,7 +567,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -689,10 +680,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // FIX: Foto Profil di Drawer - gunakan asset
                     const CircleAvatar(
                       radius: 40,
-                      backgroundColor: Color(0xFFE74C3C),
-                      child: Icon(Icons.person, size: 40, color: Colors.white),
+                      backgroundImage: AssetImage('assets/profil.png'),
+                      backgroundColor: Colors.transparent,
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -726,7 +718,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => const ProfileScreen()),
                     );
                   },
                 ),
@@ -744,7 +737,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const StatisticsScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => const StatisticsScreen()),
                     );
                   },
                 ),
@@ -755,7 +749,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const ReportsScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => const ReportsScreen()),
                     );
                   },
                 ),
@@ -766,7 +761,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const NotificationsScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => const NotificationsScreen()),
                     );
                   },
                 ),
@@ -777,7 +773,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const NewsScreen()),
+                      MaterialPageRoute(
+                          builder: (context) => const NewsScreen()),
                     );
                   },
                 ),

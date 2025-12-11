@@ -3,10 +3,9 @@ class ReportModel {
   final String title;
   final String description;
   final String category;
-  final ReportStatus status;
-  final DateTime date;
-  final String reporter;
-  final List<String> images;
+  final String status;
+  final String date;
+  final int imageCount;
 
   ReportModel({
     required this.id,
@@ -15,22 +14,35 @@ class ReportModel {
     required this.category,
     required this.status,
     required this.date,
-    required this.reporter,
-    this.images = const [],
+    this.imageCount = 0,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'category': category,
+      'status': status,
+      'date': date,
+      'imageCount': imageCount,
+    };
+  }
 }
 
+// Enum untuk statistik
 enum ReportStatus {
-  pending,
   approved,
-  rejected,
   processing,
+  pending,
+  rejected
 }
 
+// Model untuk statistik
 class MonthlyReportData {
   final String month;
   final int count;
-  final List<ReportModel> reports;
+  final List<Map<String, dynamic>> reports;
 
   MonthlyReportData({
     required this.month,
@@ -43,7 +55,7 @@ class CategoryData {
   final String category;
   final int count;
   final double percentage;
-  final List<ReportModel> reports;
+  final List<Map<String, dynamic>> reports;
 
   CategoryData({
     required this.category,
@@ -51,31 +63,4 @@ class CategoryData {
     required this.percentage,
     required this.reports,
   });
-}
-
-class StatusData {
-  final ReportStatus status;
-  final int count;
-  final double percentage;
-  final List<ReportModel> reports;
-
-  StatusData({
-    required this.status,
-    required this.count,
-    required this.percentage,
-    required this.reports,
-  });
-
-  String get statusName {
-    switch (status) {
-      case ReportStatus.approved:
-        return 'Selesai';
-      case ReportStatus.processing:
-        return 'Sedang Diproses';
-      case ReportStatus.pending:
-        return 'Menunggu Verifikasi';
-      case ReportStatus.rejected:
-        return 'Ditolak';
-    }
-  }
 }

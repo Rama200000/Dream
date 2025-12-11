@@ -41,13 +41,13 @@ class GoogleAuthService {
   }
 
   // Get user info
-  Map<String, dynamic>? getUserInfo() {
+  Map<String, String>? getUserInfo() {
     if (_currentUser != null) {
       return {
-        'uid': _currentUser!.id,
+        'displayName': _currentUser!.displayName ?? 'User Name',
         'email': _currentUser!.email,
-        'displayName': _currentUser!.displayName,
-        'photoURL': _currentUser!.photoUrl,
+        'id': _currentUser!.id,
+        'photoUrl': _currentUser!.photoUrl ?? '', // NEW: Tambah photo URL
       };
     }
     return null;

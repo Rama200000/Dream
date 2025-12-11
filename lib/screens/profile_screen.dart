@@ -15,11 +15,11 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   // Data user dummy
   UserModel user = UserModel(
-    name: 'Muhammad Rizki',
-    email: 'rizki.mahasiswa@polinela.ac.id',
-    phone: '081234567890',
-    nim: '2141762084',
-    jurusan: 'Teknik Informatika',
+    name: 'Gede Rama Jayakusuma',
+    email: 'rama.jayakusuma@polinela.ac.id',
+    phone: '085233740141',
+    nim: '23759034',
+    jurusan: 'Teknologi Informasi',
   );
 
   void _showLogoutDialog() {
@@ -53,7 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _changeProfilePhoto() async {
     final ImagePicker picker = ImagePicker();
-    
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -77,7 +77,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: const Text('Ambil Foto'),
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? photo = await picker.pickImage(source: ImageSource.camera);
+                final XFile? photo =
+                    await picker.pickImage(source: ImageSource.camera);
                 if (photo != null) {
                   setState(() {
                     user.photoUrl = photo.path;
@@ -94,11 +95,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Color(0xFF1453A3)),
+              leading:
+                  const Icon(Icons.photo_library, color: Color(0xFF1453A3)),
               title: const Text('Pilih dari Galeri'),
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? photo = await picker.pickImage(source: ImageSource.gallery);
+                final XFile? photo =
+                    await picker.pickImage(source: ImageSource.gallery);
                 if (photo != null) {
                   setState(() {
                     user.photoUrl = photo.path;
@@ -144,7 +147,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header dengan gradient
+            // Header
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -168,7 +171,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          icon:
+                              const Icon(Icons.arrow_back, color: Colors.white),
                           onPressed: () => Navigator.pop(context),
                         ),
                         const SizedBox(width: 12),
@@ -188,7 +192,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => EditProfileScreen(user: user),
+                                builder: (context) =>
+                                    EditProfileScreen(user: user),
                               ),
                             );
                             if (result != null && result is UserModel) {
@@ -202,44 +207,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
 
-                  // Profile Photo
+                  // FIX: Foto Profil dengan asset default
                   GestureDetector(
                     onTap: _changeProfilePhoto,
                     child: Stack(
                       children: [
                         Container(
-                          width: 120,
-                          height: 120,
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.white,
-                            border: Border.all(color: Colors.white, width: 4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
-                                blurRadius: 10,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
+                            border: Border.all(color: Colors.white, width: 3),
                           ),
-                          child: ClipOval(
-                            child: user.photoUrl != null
-                                ? Image.file(
-                                    File(user.photoUrl!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : const Icon(
-                                    Icons.person,
-                                    size: 60,
-                                    color: Color(0xFF1453A3),
-                                  ),
-                          ),
+                          child: user.photoUrl != null && user.photoUrl!.isNotEmpty
+                              ? CircleAvatar(
+                                  radius: 50,
+                                  backgroundImage: user.photoUrl!.startsWith('http')
+                                      ? NetworkImage(user.photoUrl!)
+                                      : FileImage(File(user.photoUrl!)) as ImageProvider,
+                                  backgroundColor: Colors.transparent,
+                                )
+                              : const CircleAvatar(
+                                  radius: 50,
+                                  backgroundImage: AssetImage('assets/profil.png'),
+                                  backgroundColor: Colors.transparent,
+                                ),
                         ),
                         Positioned(
                           bottom: 0,
                           right: 0,
                           child: Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(6),
                             decoration: const BoxDecoration(
                               color: Color(0xFF1453A3),
                               shape: BoxShape.circle,
@@ -247,7 +244,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: const Icon(
                               Icons.camera_alt,
                               color: Colors.white,
-                              size: 20,
+                              size: 18,
                             ),
                           ),
                         ),
@@ -317,7 +314,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Ubah Password',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Fitur Ubah Password - Coming Soon')),
+                          const SnackBar(
+                              content:
+                                  Text('Fitur Ubah Password - Coming Soon')),
                         );
                       },
                     ),
@@ -327,7 +326,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Bantuan & Dukungan',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Fitur Bantuan - Coming Soon')),
+                          const SnackBar(
+                              content: Text('Fitur Bantuan - Coming Soon')),
                         );
                       },
                     ),
@@ -340,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                     const SizedBox(height: 30),
-                    
+
                     // Logout Button
                     SizedBox(
                       width: double.infinity,
