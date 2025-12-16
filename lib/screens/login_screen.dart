@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-import 'package:video_player/video_player.dart'; // NEW: Import video player
-import 'dashboard_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'create_report_screen.dart';
+import 'forgot_password_screen.dart';
 import '../services/google_auth_service.dart';
-import '../services/image_cache_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool redirectToCreateReport;
+
+  const LoginScreen({
+    super.key,
+    this.redirectToCreateReport = false,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -16,225 +19,14 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  File? _selectedImage;
-  File? _selectedVideo; // NEW: Video file
-  VideoPlayerController? _videoController; // NEW: Video controller
-  final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
   bool _obscurePassword = true;
   final GoogleAuthService _googleAuthService = GoogleAuthService();
-  final ImageCacheService _imageCacheService = ImageCacheService();
 
   @override
   void initState() {
     super.initState();
-    _checkExistingLogin();
-  }
-
-  Future<void> _checkExistingLogin() async {
-    final googleUser = await _googleAuthService.signInSilently();
-    if (googleUser != null && mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
-      );
-    }
-  }
-
-  // NEW: Fungsi untuk pick media (foto atau video)
-  Future<void> _pickMedia() async {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Pilih Media Bukti',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Foto atau Video sebagai bukti laporan',
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 20),
-
-              // Grid Menu untuk Media
-              GridView.count(
-                shrinkWrap: true,
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.3,
-                children: [
-                  _buildMediaOption(
-                    icon: Icons.camera_alt,
-                    label: 'Ambil Foto',
-                    color: const Color(0xFF1453A3),
-                    onTap: () async {
-                      Navigator.pop(context);
-                      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
-                      if (image != null) {
-                        setState(() {
-                          _selectedImage = File(image.path);
-                          _selectedVideo = null;
-                          _videoController?.dispose();
-                          _videoController = null;
-                        });
-                      }
-                    },
-                  ),
-                  _buildMediaOption(
-                    icon: Icons.photo_library,
-                    label: 'Galeri Foto',
-                    color: const Color(0xFF2E78D4),
-                    onTap: () async {
-                      Navigator.pop(context);
-                      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-                      if (image != null) {
-                        setState(() {
-                          _selectedImage = File(image.path);
-                          _selectedVideo = null;
-                          _videoController?.dispose();
-                          _videoController = null;
-                        });
-                      }
-                    },
-                  ),
-                  _buildMediaOption(
-                    icon: Icons.videocam,
-                    label: 'Rekam Video',
-                    color: const Color(0xFFE74C3C),
-                    onTap: () async {
-                      Navigator.pop(context);
-                      final XFile? video = await _picker.pickVideo(
-                        source: ImageSource.camera,
-                        maxDuration: const Duration(minutes: 2),
-                      );
-                      if (video != null) {
-                        final videoFile = File(video.path);
-                        final controller = VideoPlayerController.file(videoFile);
-
-                        try {
-                          await controller.initialize();
-                          setState(() {
-                            _selectedVideo = videoFile;
-                            _selectedImage = null;
-                            _videoController?.dispose();
-                            _videoController = controller;
-                          });
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error loading video: $e'), backgroundColor: Colors.red),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                  _buildMediaOption(
-                    icon: Icons.video_library,
-                    label: 'Galeri Video',
-                    color: const Color(0xFFFF6B6B),
-                    onTap: () async {
-                      Navigator.pop(context);
-                      final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
-                      if (video != null) {
-                        final videoFile = File(video.path);
-                        final controller = VideoPlayerController.file(videoFile);
-
-                        try {
-                          await controller.initialize();
-                          setState(() {
-                            _selectedVideo = videoFile;
-                            _selectedImage = null;
-                            _videoController?.dispose();
-                            _videoController = controller;
-                          });
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error loading video: $e'), backgroundColor: Colors.red),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMediaOption({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3), width: 2),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _saveMediaToCache() {
-    if (_selectedImage != null) {
-      _imageCacheService.cacheImage(_selectedImage!.path);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Foto berhasil disimpan! Akan tersedia di halaman laporan.'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } else if (_selectedVideo != null) {
-      _imageCacheService.cacheVideo(_selectedVideo!.path);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Video berhasil disimpan! Akan tersedia di halaman laporan.'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Belum ada media yang dipilih!'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
+    // Tidak perlu auto-redirect, user akan login manual
   }
 
   Future<void> _loginWithEmail() async {
@@ -249,14 +41,39 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     setState(() => _isLoading = true);
+
+    // Simulasi API call
     await Future.delayed(const Duration(seconds: 2));
+
+    // Simpan status login
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', true);
+    await prefs.setString('userEmail', _emailController.text);
+    await prefs.setString('userName', _emailController.text.split('@')[0]);
+    await prefs.setString('loginMethod', 'email');
+
     setState(() => _isLoading = false);
 
     if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      // Tampilkan pesan sukses
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login berhasil! Selamat datang'),
+          backgroundColor: Colors.green,
+        ),
       );
+
+      // Cek apakah perlu redirect ke create report
+      if (widget.redirectToCreateReport) {
+        Navigator.pop(context, true);
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CreateReportScreen()),
+        );
+      } else {
+        // Pop kembali ke screen sebelumnya (Dashboard)
+        Navigator.pop(context, true);
+      }
     }
   }
 
@@ -267,6 +84,14 @@ class _LoginScreenState extends State<LoginScreen> {
       final googleUser = await _googleAuthService.signInWithGoogle();
 
       if (googleUser != null && mounted) {
+        // Simpan status login
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setString('userEmail', googleUser.email);
+        await prefs.setString('userName', googleUser.displayName ?? 'User');
+        await prefs.setString('userPhoto', googleUser.photoUrl ?? '');
+        await prefs.setString('loginMethod', 'google');
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -275,10 +100,19 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const DashboardScreen()),
-        );
+        // Cek apakah perlu redirect ke create report
+        if (widget.redirectToCreateReport) {
+          // Pop dengan hasil true untuk memberi tahu dashboard login berhasil
+          Navigator.pop(context, true);
+          // Kemudian push ke create report screen
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateReportScreen()),
+          );
+        } else {
+          // Pop kembali ke screen sebelumnya (Dashboard)
+          Navigator.pop(context, true);
+        }
       } else {
         setState(() => _isLoading = false);
       }
@@ -304,13 +138,43 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Background Gradient
+          // Background Gradient dengan pattern
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF1453A3), Color(0xFF2E78D4)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF1453A3),
+                  Color(0xFF2E78D4),
+                  Color(0xFF1E88E5),
+                ],
+              ),
+            ),
+          ),
+
+          // Decorative circles
+          Positioned(
+            top: -50,
+            right: -50,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.1),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -80,
+            left: -80,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.08),
               ),
             ),
           ),
@@ -321,211 +185,68 @@ class _LoginScreenState extends State<LoginScreen> {
               builder: (context, constraints) {
                 return SingleChildScrollView(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
                     child: IntrinsicHeight(
                       child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: screenWidth * 0.06),
                         child: Column(
                           children: [
-                            // Header - FIX: Gunakan asset logo
-                            SizedBox(height: screenHeight * 0.02),
-                            Row(
-                              children: [
-                                // Logo SSP dari assets
-                                Image.asset(
-                                  'assets/images/logo.png',
-                                  width: screenWidth * 0.12,
-                                  height: screenWidth * 0.12,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      width: screenWidth * 0.12,
-                                      height: screenWidth * 0.12,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE74C3C),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Icon(
-                                        Icons.shield,
-                                        color: Colors.white,
-                                        size: screenWidth * 0.07,
-                                      ),
-                                    );
-                                  },
-                                ),
-                                SizedBox(width: screenWidth * 0.025),
-                                Text(
-                                  'Academic Report',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: screenWidth * 0.05,
-                                    fontWeight: FontWeight.bold,
+                            SizedBox(height: screenHeight * 0.06),
+
+                            // Logo Header
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.15),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 8),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
+                              child: Image.asset(
+                                'assets/images/logo.png',
+                                width: 70,
+                                height: 70,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.shield,
+                                    size: 70,
+                                    color: Color(0xFF1453A3),
+                                  );
+                                },
+                              ),
                             ),
 
                             SizedBox(height: screenHeight * 0.03),
 
-                            // FIX: Media Upload Card - Support Foto & Video
-                            Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.all(screenWidth * 0.04),
-                              decoration: BoxDecoration(
+                            // Welcome text
+                            const Text(
+                              'Selamat Datang',
+                              style: TextStyle(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  GestureDetector(
-                                    onTap: _pickMedia, // FIX: Ganti _pickImage jadi _pickMedia
-                                    child: Container(
-                                      width: double.infinity,
-                                      height: screenHeight * 0.18,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF5F5F5),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: const Color(0xFFE0E0E0), width: 1.5),
-                                      ),
-                                      child: _selectedImage == null && _selectedVideo == null
-                                          ? Column(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.add_a_photo,
-                                                  size: screenWidth * 0.12,
-                                                  color: Colors.grey[400],
-                                                ),
-                                                SizedBox(height: screenHeight * 0.01),
-                                                Text(
-                                                  'Tap untuk foto atau video',
-                                                  style: TextStyle(
-                                                    fontSize: screenWidth * 0.035,
-                                                    color: Colors.grey[600],
-                                                  ),
-                                                ),
-                                                SizedBox(height: 4),
-                                                Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(Icons.photo, size: 14, color: Colors.grey[500]),
-                                                    const SizedBox(width: 4),
-                                                    Text('Foto', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                                                    const SizedBox(width: 12),
-                                                    Icon(Icons.videocam, size: 14, color: Colors.grey[500]),
-                                                    const SizedBox(width: 4),
-                                                    Text('Video', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-                                                  ],
-                                                ),
-                                              ],
-                                            )
-                                          : _selectedImage != null
-                                              ? ClipRRect(
-                                                  borderRadius: BorderRadius.circular(10),
-                                                  child: Image.file(_selectedImage!, fit: BoxFit.cover),
-                                                )
-                                              : _videoController != null
-                                                  ? Stack(
-                                                      fit: StackFit.expand,
-                                                      children: [
-                                                        ClipRRect(
-                                                          borderRadius: BorderRadius.circular(10),
-                                                          child: VideoPlayer(_videoController!),
-                                                        ),
-                                                        Center(
-                                                          child: Container(
-                                                            padding: const EdgeInsets.all(12),
-                                                            decoration: BoxDecoration(
-                                                              color: Colors.black.withOpacity(0.5),
-                                                              shape: BoxShape.circle,
-                                                            ),
-                                                            child: IconButton(
-                                                              icon: Icon(
-                                                                _videoController!.value.isPlaying
-                                                                    ? Icons.pause
-                                                                    : Icons.play_arrow,
-                                                                color: Colors.white,
-                                                                size: 32,
-                                                              ),
-                                                              onPressed: () {
-                                                                setState(() {
-                                                                  _videoController!.value.isPlaying
-                                                                      ? _videoController!.pause()
-                                                                      : _videoController!.play();
-                                                                });
-                                                              },
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        Positioned(
-                                                          top: 8,
-                                                          left: 8,
-                                                          child: Container(
-                                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                            decoration: BoxDecoration(
-                                                              color: const Color(0xFFE74C3C).withOpacity(0.9),
-                                                              borderRadius: BorderRadius.circular(6),
-                                                            ),
-                                                            child: Row(
-                                                              mainAxisSize: MainAxisSize.min,
-                                                              children: [
-                                                                const Icon(Icons.videocam, color: Colors.white, size: 14),
-                                                                const SizedBox(width: 4),
-                                                                Text(
-                                                                  '${_videoController!.value.duration.inSeconds}s',
-                                                                  style: const TextStyle(
-                                                                    color: Colors.white,
-                                                                    fontSize: 11,
-                                                                    fontWeight: FontWeight.w600,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    )
-                                                  : const Center(child: CircularProgressIndicator()),
-                                    ),
-                                  ),
-                                  SizedBox(height: screenHeight * 0.015),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton.icon(
-                                      onPressed: _saveMediaToCache, // FIX: Ganti function
-                                      icon: Icon(
-                                        _selectedVideo != null ? Icons.videocam : Icons.photo,
-                                        size: 20,
-                                      ),
-                                      label: Text(
-                                        _selectedVideo != null ? 'Simpan Video' : 'Simpan Foto',
-                                        style: TextStyle(
-                                          fontSize: screenWidth * 0.036,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF1453A3),
-                                        foregroundColor: Colors.white,
-                                        elevation: 0,
-                                        padding: EdgeInsets.symmetric(vertical: screenHeight * 0.015),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
                               ),
                             ),
 
-                            SizedBox(height: screenHeight * 0.025),
+                            const SizedBox(height: 8),
+
+                            Text(
+                              'Academic Report System',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 15,
+                              ),
+                            ),
+
+                            SizedBox(height: screenHeight * 0.04),
 
                             // Sign In Card - Responsive
                             Container(
@@ -652,7 +373,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: TextButton(
-                                      onPressed: () {},
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const ForgotPasswordScreen(),
+                                          ),
+                                        );
+                                      },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.symmetric(
                                           horizontal: screenWidth * 0.01,
@@ -824,7 +553,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _videoController?.dispose(); // NEW: Dispose video controller
     super.dispose();
   }
 }

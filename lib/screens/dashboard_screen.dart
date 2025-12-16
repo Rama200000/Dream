@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-import 'statistics_screen.dart';
+import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'reports_screen.dart';
 import 'notifications_screen.dart';
+import 'more_menu_screen.dart';
 import 'news_screen.dart';
 import 'login_screen.dart';
 import 'create_report_screen.dart';
 import 'profile_screen.dart';
+import 'help_support_screen.dart';
+import 'settings_screen.dart';
 import '../services/google_auth_service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -23,11 +27,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _userName = 'User Name';
   String _userEmail = 'user@example.com';
   String? _userPhotoUrl; // NEW: Tambah photo URL
+  String? _profilePhotoPath; // Foto profil lokal dari SharedPreferences
 
   @override
   void initState() {
     super.initState();
-    _loadUserInfo();
+    _checkLoginStatus();
+    _loadProfilePhoto();
+  }
+
+  // Cek status login dan load user info
+  Future<void> _checkLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+    if (isLoggedIn) {
+      // Load data dari SharedPreferences
+      final userName = prefs.getString('userName');
+      final userEmail = prefs.getString('userEmail');
+      final userPhoto = prefs.getString('userPhoto');
+      final loginMethod = prefs.getString('loginMethod');
+
+      // Jika login dengan Google, coba silent sign in
+      if (loginMethod == 'google') {
+        await _googleAuthService.signInSilently();
+        final userInfo = _googleAuthService.getUserInfo();
+        if (userInfo != null) {
+          setState(() {
+            _userName = userInfo['displayName'] ?? userName ?? 'User Name';
+            _userEmail = userInfo['email'] ?? userEmail ?? 'user@example.com';
+            _userPhotoUrl = userInfo['photoUrl'] ?? userPhoto;
+          });
+          return;
+        }
+      }
+
+      // Jika login dengan email atau Google gagal, gunakan data dari SharedPreferences
+      setState(() {
+        _userName = userName ?? 'User Name';
+        _userEmail = userEmail ?? 'user@example.com';
+        _userPhotoUrl = userPhoto;
+      });
+    } else {
+      // Jika belum login, tampilkan guest
+      setState(() {
+        _userName = 'Guest';
+        _userEmail = 'Silakan login untuk membuat laporan';
+        _userPhotoUrl = null;
+      });
+    }
   }
 
   void _loadUserInfo() {
@@ -38,6 +86,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _userEmail = userInfo['email'] ?? 'user@example.com';
         _userPhotoUrl = userInfo['photoUrl']; // NEW: Load photo URL
       });
+    } else {
+      setState(() {
+        _userName = 'Guest';
+        _userEmail = 'Silakan login untuk membuat laporan';
+      });
+    }
+  }
+
+  // Memuat foto profil yang tersimpan
+  Future<void> _loadProfilePhoto() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPhotoPath = prefs.getString('profile_photo_path');
+    if (savedPhotoPath != null && savedPhotoPath.isNotEmpty) {
+      final file = File(savedPhotoPath);
+      if (await file.exists()) {
+        setState(() {
+          _profilePhotoPath = savedPhotoPath;
+        });
+      }
     }
   }
 
@@ -53,25 +120,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // Sudah di Dashboard
         break;
       case 1:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const StatisticsScreen()),
-        ).then((_) => setState(() => _selectedIndex = 0));
-        break;
-      case 2:
         // FIX: Ganti CreateReportScreen menjadi ReportsScreen
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const ReportsScreen()),
         ).then((_) => setState(() => _selectedIndex = 0));
         break;
-      case 3:
+      case 2:
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const NotificationsScreen()),
         ).then((_) => setState(() => _selectedIndex = 0));
         break;
+      case 3:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const MoreMenuScreen()),
+        ).then((_) => setState(() => _selectedIndex = 0));
+        break;
     }
+  }
+
+  // Handle pembuatan laporan - langsung ke create report (cek login nanti saat submit)
+  void _handleCreateReport() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const CreateReportScreen(),
+      ),
+    ).then((_) {
+      // Refresh user info jika ada perubahan setelah kembali
+      _loadUserInfo();
+      _loadProfilePhoto();
+    });
   }
 
   void _showLogoutDialog() {
@@ -87,14 +168,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              Navigator.pop(context); // Tutup dialog
+
               // Sign out dari Google
               await _googleAuthService.signOut();
 
+              // Hapus data login dari SharedPreferences
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('isLoggedIn', false);
+              await prefs.remove('userEmail');
+              await prefs.remove('userName');
+              await prefs.remove('userPhoto');
+              await prefs.remove('loginMethod');
+
               if (mounted) {
-                Navigator.of(context).popUntil((route) => route.isFirst);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                // Setelah logout, tetap di dashboard sebagai guest
+                setState(() {
+                  _userName = 'Guest';
+                  _userEmail = 'Silakan login untuk membuat laporan';
+                  _userPhotoUrl = null;
+                  _profilePhotoPath = null;
+                });
+
+                // Tampilkan pesan logout sukses
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content:
+                        Text('Logout berhasil! Anda sekarang sebagai Guest'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
                 );
               }
             },
@@ -119,17 +222,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             // Header - FIX: Gunakan foto profil dari asset
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.menu, color: Colors.white),
-                    onPressed: () {
-                      _scaffoldKey.currentState?.openDrawer();
-                    },
+                  // Logo Polinela di pojok kiri
+                  SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.shield,
+                          size: 45,
+                          color: Colors.white,
+                        );
+                      },
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  // Logo Perisai DIHAPUS - langsung ke text
+                  const SizedBox(width: 16),
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,18 +265,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const ProfileScreen(),
                         ),
                       );
+                      // Reload foto profil setelah kembali dari ProfileScreen
+                      _loadProfilePhoto();
                     },
-                    child: const CircleAvatar(
-                      radius: 20,
-                      backgroundImage: AssetImage('assets/profil.png'),
-                      backgroundColor: Colors.transparent,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: _userPhotoUrl != null && _userPhotoUrl!.isNotEmpty
+                          ? CircleAvatar(
+                              radius: 23,
+                              backgroundImage: _userPhotoUrl!.startsWith('http')
+                                  ? NetworkImage(_userPhotoUrl!)
+                                  : FileImage(File(_userPhotoUrl!))
+                                      as ImageProvider,
+                              backgroundColor: Colors.transparent,
+                            )
+                          : _profilePhotoPath != null &&
+                                  _profilePhotoPath!.isNotEmpty
+                              ? CircleAvatar(
+                                  radius: 23,
+                                  backgroundImage:
+                                      FileImage(File(_profilePhotoPath!)),
+                                  backgroundColor: Colors.transparent,
+                                )
+                              : const CircleAvatar(
+                                  radius: 23,
+                                  backgroundImage:
+                                      AssetImage('assets/profil.png'),
+                                  backgroundColor: Colors.transparent,
+                                ),
                     ),
                   ),
                 ],
@@ -186,76 +324,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Statistics Grid - FIX childAspectRatio
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 1.15, // Ubah dari 1.3 ke 1.15 (lebih tinggi)
-                        children: [
-                          _buildStatCard(
-                            icon: Icons.description,
-                            iconColor: const Color(0xFF1453A3),
-                            count: '127',
-                            label: 'Total Laporan',
-                            bgColor: const Color(0xFFE3F2FD),
+                      // Tombol Kamera Besar di Tengah
+                      Center(
+                        child: Container(
+                          width: double.infinity,
+                          height: 200,
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
+                          child: InkWell(
                             onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ReportsScreen(),
-                                ),
-                              );
+                              _handleCreateReport();
                             },
-                          ),
-                          _buildStatCard(
-                            icon: Icons.warning_amber,
-                            iconColor: const Color(0xFFFFA726),
-                            count: '12',
-                            label: 'Menunggu Review',
-                            bgColor: const Color(0xFFFFF3E0),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ReportsScreen(),
+                            borderRadius: BorderRadius.circular(24),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF1453A3),
+                                    Color(0xFF2E78D4)
+                                  ],
                                 ),
-                              );
-                            },
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF1453A3)
+                                        .withOpacity(0.3),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.camera_alt,
+                                      size: 64,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'Buat Laporan',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Ketuk untuk membuat laporan baru',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          _buildStatCard(
-                            icon: Icons.check_circle,
-                            iconColor: const Color(0xFF66BB6A),
-                            count: '80',
-                            label: 'Terverifikasi',
-                            bgColor: const Color(0xFFE8F5E9),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ReportsScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                          _buildStatCard(
-                            icon: Icons.cancel,
-                            iconColor: const Color(0xFFE74C3C),
-                            count: '64',
-                            label: 'Laporan Ditolak',
-                            bgColor: const Color(0xFFFFEBEE),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ReportsScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+                        ),
                       ),
 
                       const SizedBox(height: 30),
@@ -441,7 +577,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     height: 1.2, // Tambahkan line height
                   ),
                   maxLines: 2, // Max 2 baris
-                  overflow: TextOverflow.ellipsis, // Tambah ... jika terlalu panjang
+                  overflow:
+                      TextOverflow.ellipsis, // Tambah ... jika terlalu panjang
                 ),
               ],
             ),
@@ -630,11 +767,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             label: 'Beranda',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            activeIcon: Icon(Icons.bar_chart),
-            label: 'Grafik',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.file_copy_outlined),
             activeIcon: Icon(Icons.file_copy),
             label: 'Laporan',
@@ -643,6 +775,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icon(Icons.notifications_outlined),
             activeIcon: Icon(Icons.notifications),
             label: 'Notifikasi',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.menu),
+            activeIcon: Icon(Icons.menu),
+            label: 'Lainnya',
           ),
         ],
       ),
@@ -731,18 +868,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.bar_chart),
-                  title: const Text('Grafik & Statistik'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const StatisticsScreen()),
-                    );
-                  },
-                ),
-                ListTile(
                   leading: const Icon(Icons.file_copy),
                   title: const Text('Laporan Saya'),
                   onTap: () {
@@ -784,8 +909,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   title: const Text('Pengaturan'),
                   onTap: () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Pengaturan - Coming Soon')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(),
+                      ),
                     );
                   },
                 ),
@@ -794,8 +922,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   title: const Text('Bantuan'),
                   onTap: () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Bantuan - Coming Soon')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const HelpSupportScreen(),
+                      ),
                     );
                   },
                 ),
@@ -803,17 +934,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const Divider(height: 1),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Color(0xFFE74C3C)),
-            title: const Text(
-              'Logout',
-              style: TextStyle(color: Color(0xFFE74C3C)),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              _showLogoutDialog();
-            },
-          ),
+          // Tampilkan Login atau Logout berdasarkan status
+          _googleAuthService.isSignedIn()
+              ? ListTile(
+                  leading: const Icon(Icons.logout, color: Color(0xFFE74C3C)),
+                  title: const Text(
+                    'Logout',
+                    style: TextStyle(color: Color(0xFFE74C3C)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showLogoutDialog();
+                  },
+                )
+              : ListTile(
+                  leading: const Icon(Icons.login, color: Color(0xFF1453A3)),
+                  title: const Text(
+                    'Login',
+                    style: TextStyle(color: Color(0xFF1453A3)),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
+                    ).then((_) {
+                      // Refresh user info setelah login
+                      _loadUserInfo();
+                      _loadProfilePhoto();
+                    });
+                  },
+                ),
           const SizedBox(height: 16),
         ],
       ),

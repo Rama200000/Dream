@@ -54,12 +54,7 @@ class ReportDetailScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.more_vert, color: Colors.white),
-                    onPressed: () {
-                      _showOptionsMenu(context);
-                    },
-                  ),
+                  const SizedBox(width: 48), // Placeholder untuk menjaga keseimbangan layout
                 ],
               ),
             ),
@@ -271,7 +266,7 @@ class ReportDetailScreen extends StatelessWidget {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              _buildProcessDetailRow('Reviewer', 'Dea Fakultas'),
+                              _buildProcessDetailRow('Reviewer', 'Timdis'),
                               const SizedBox(height: 10),
                               _buildProcessDetailRow('Tanggal Review', '15 Januari 2025'),
                               const SizedBox(height: 10),

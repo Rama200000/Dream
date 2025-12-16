@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -37,7 +38,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  void _saveProfile() {
+  void _saveProfile() async {
     if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -47,6 +48,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       return;
     }
+
+    // Simpan ke SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userName', _nameController.text);
+    await prefs.setString('userEmail', _emailController.text);
+    await prefs.setString('userPhone', _phoneController.text);
+    await prefs.setString('userNim', _nimController.text);
+    await prefs.setString('userJurusan', _jurusanController.text);
 
     // Update user data
     final updatedUser = UserModel(
@@ -191,7 +200,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey[300]!),
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
       ],

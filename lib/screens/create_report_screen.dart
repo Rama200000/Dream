@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:video_player/video_player.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dashboard_screen.dart';
-import 'statistics_screen.dart';
 import 'reports_screen.dart';
 import 'notifications_screen.dart';
+import 'more_menu_screen.dart';
+import 'report_detail_screen.dart';
+import 'login_screen.dart';
 import '../services/image_cache_service.dart';
 import '../services/report_service.dart';
+import '../services/google_auth_service.dart';
 import '../models/report_model.dart';
 
 class CreateReportScreen extends StatefulWidget {
@@ -20,15 +24,20 @@ class CreateReportScreen extends StatefulWidget {
 class _CreateReportScreenState extends State<CreateReportScreen> {
   final TextEditingController _judulController = TextEditingController();
   final TextEditingController _deskripsiController = TextEditingController();
+  final TextEditingController _customCategoryController =
+      TextEditingController();
   String _selectedCategory = '';
-  
+  DateTime? _selectedDate;
+  bool _showCustomCategory = false;
+
   // Media files
   List<MediaItem> _mediaItems = [];
   final ImagePicker _picker = ImagePicker();
-  
-  int _selectedIndex = 2;
+
+  int _selectedIndex = 1;
   final ImageCacheService _imageCacheService = ImageCacheService();
   final ReportService _reportService = ReportService();
+  final GoogleAuthService _googleAuthService = GoogleAuthService();
 
   final List<String> _categories = [
     'Plagiarisme',
@@ -47,7 +56,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
   Future<void> _loadCachedMedia() async {
     final mediaType = await _imageCacheService.getMediaType();
-    
+
     if (mediaType == 'image') {
       // Load image - FIX: Use async method
       final hasImage = await _imageCacheService.hasImageAsync();
@@ -77,10 +86,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       final cachedVideo = await _imageCacheService.getCachedVideo();
       if (cachedVideo != null) {
         final controller = VideoPlayerController.file(cachedVideo);
-        
+
         try {
           await controller.initialize();
-          
+
           setState(() {
             _mediaItems.add(MediaItem(
               file: cachedVideo,
@@ -112,7 +121,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     }
 
     final hasMedia = await _imageCacheService.hasMedia();
-    
+
     if (hasMedia) {
       // Show info banner
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -146,7 +155,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       source: ImageSource.camera,
       imageQuality: 85,
     );
-    
+
     if (image != null) {
       setState(() {
         _mediaItems.add(MediaItem(
@@ -169,7 +178,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     final List<XFile> images = await _picker.pickMultiImage(
       imageQuality: 85,
     );
-    
+
     if (images.isNotEmpty) {
       setState(() {
         for (var image in images) {
@@ -197,14 +206,14 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       source: ImageSource.camera,
       maxDuration: const Duration(minutes: 2),
     );
-    
+
     if (video != null) {
       final videoFile = File(video.path);
       final controller = VideoPlayerController.file(videoFile);
-      
+
       try {
         await controller.initialize();
-        
+
         setState(() {
           _mediaItems.add(MediaItem(
             file: videoFile,
@@ -233,14 +242,14 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
   Future<void> _pickVideoFromGallery() async {
     final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
-    
+
     if (video != null) {
       final videoFile = File(video.path);
       final controller = VideoPlayerController.file(videoFile);
-      
+
       try {
         await controller.initialize();
-        
+
         setState(() {
           _mediaItems.add(MediaItem(
             file: videoFile,
@@ -312,7 +321,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 style: TextStyle(fontSize: 13, color: Colors.grey[600]),
               ),
               const SizedBox(height: 20),
-              
+
               // Grid Menu
               GridView.count(
                 shrinkWrap: true,
@@ -406,7 +415,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     if (item.type == MediaType.video && item.controller != null) {
       item.controller!.dispose();
     }
-    
+
     setState(() {
       _mediaItems.removeAt(index);
     });
@@ -420,7 +429,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     );
   }
 
-  void _submitReport() {
+  void _submitReport() async {
     // Validasi
     if (_judulController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -452,14 +461,211 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       return;
     }
 
-    final photoCount = _mediaItems.where((m) => m.type == MediaType.image).length;
-    final videoCount = _mediaItems.where((m) => m.type == MediaType.video).length;
+    if (_selectedCategory == 'Lainnya' &&
+        _customCategoryController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kategori lainnya harus diisi!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tanggal kejadian harus dipilih!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // CEK LOGIN - Cek dari SharedPreferences dan Google Sign In
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedInSharedPrefs = prefs.getBool('isLoggedIn') ?? false;
+    final isLoggedInGoogle = _googleAuthService.isSignedIn();
+
+    final isLoggedIn = isLoggedInSharedPrefs || isLoggedInGoogle;
+
+    if (!isLoggedIn) {
+      // Jika belum login, tampilkan dialog konfirmasi
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Login Diperlukan',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          content: const Text(
+              'Anda harus login terlebih dahulu untuk mengirim laporan. Data laporan Anda akan tersimpan. Apakah Anda ingin login sekarang?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1453A3),
+              ),
+              child: const Text('Login', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (result == true && mounted) {
+        // Simpan data laporan sementara ke ImageCacheService termasuk tanggal
+        final months = [
+          'Januari',
+          'Februari',
+          'Maret',
+          'April',
+          'Mei',
+          'Juni',
+          'Juli',
+          'Agustus',
+          'September',
+          'Oktober',
+          'November',
+          'Desember'
+        ];
+        final dateStr = _selectedDate != null
+            ? '${_selectedDate!.day} ${months[_selectedDate!.month - 1]} ${_selectedDate!.year}'
+            : '';
+
+        await _imageCacheService.cacheReportData(
+          title: _judulController.text,
+          description: _deskripsiController.text,
+          category: _selectedCategory,
+          customCategory: _selectedCategory == 'Lainnya'
+              ? _customCategoryController.text
+              : null,
+          selectedDate: dateStr,
+        );
+
+        // Arahkan ke login screen
+        final loginSuccess = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                const LoginScreen(redirectToCreateReport: false),
+          ),
+        );
+
+        // Jika login berhasil, langsung submit dan navigate ke detail
+        if (loginSuccess == true && mounted) {
+          // Tampilkan loading
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          );
+
+          // Delay sebentar untuk UX
+          await Future.delayed(const Duration(milliseconds: 500));
+
+          // Tutup loading
+          if (mounted) Navigator.pop(context);
+
+          // Auto submit dan navigate ke detail
+          await _autoSubmitAfterLogin();
+        }
+      }
+      return;
+    }
+
+    // Jika sudah login, lanjutkan submit
+    _proceedWithSubmit();
+  }
+
+  // Method untuk auto submit setelah login (langsung ke detail laporan)
+  Future<void> _autoSubmitAfterLogin() async {
+    // Load data dari cache
+    final cachedData = await _imageCacheService.getCachedReportData();
+
+    if (cachedData == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Terjadi kesalahan saat memuat data laporan'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Gunakan data dari cache
+    final title = cachedData['title'] ?? _judulController.text;
+    final description = cachedData['description'] ?? _deskripsiController.text;
+    final category = cachedData['category'] ?? _selectedCategory;
+    final customCategory = cachedData['customCategory'];
+    final dateStr = cachedData['selectedDate'] ?? '';
+
+    // Get final category (gunakan custom jika "Lainnya")
+    final finalCategory =
+        category == 'Lainnya' ? (customCategory ?? category) : category;
+
+    final newReport = ReportModel(
+      id: _reportService.getNextId(),
+      title: title,
+      description: description,
+      category: finalCategory,
+      status: 'Diproses',
+      date: dateStr,
+      imageCount: _mediaItems.length,
+    );
+
+    _reportService.addReport(newReport);
+
+    // Clear cached report data
+    await _imageCacheService.clearReportData();
+
+    // Konversi ReportModel ke Map untuk ReportDetailScreen
+    final reportMap = {
+      'id': newReport.id,
+      'title': newReport.title,
+      'description': newReport.description,
+      'category': newReport.category,
+      'status': newReport.status,
+      'date': newReport.date,
+      'imageCount': newReport.imageCount,
+    };
+
+    // Tampilkan notifikasi sukses
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✓ Laporan berhasil dikirim!'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    // LANGSUNG ke Detail Laporan
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReportDetailScreen(report: reportMap),
+      ),
+    );
+  }
+
+  // Method terpisah untuk proses submit setelah login
+  void _proceedWithSubmit() {
+    final photoCount =
+        _mediaItems.where((m) => m.type == MediaType.image).length;
+    final videoCount =
+        _mediaItems.where((m) => m.type == MediaType.video).length;
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Konfirmasi', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Konfirmasi',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,7 +683,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.photo, size: 16, color: Color(0xFF1453A3)),
+                      const Icon(Icons.photo,
+                          size: 16, color: Color(0xFF1453A3)),
                       const SizedBox(width: 8),
                       Text('$photoCount Foto'),
                     ],
@@ -485,7 +692,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.videocam, size: 16, color: Color(0xFFE74C3C)),
+                      const Icon(Icons.videocam,
+                          size: 16, color: Color(0xFFE74C3C)),
                       const SizedBox(width: 8),
                       Text('$videoCount Video'),
                     ],
@@ -503,15 +711,32 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           ElevatedButton(
             onPressed: () {
               final now = DateTime.now();
-              final months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
-                            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+              final months = [
+                'Januari',
+                'Februari',
+                'Maret',
+                'April',
+                'Mei',
+                'Juni',
+                'Juli',
+                'Agustus',
+                'September',
+                'Oktober',
+                'November',
+                'Desember'
+              ];
               final dateStr = '${now.day} ${months[now.month - 1]} ${now.year}';
-              
+
+              // Get final category (gunakan custom jika "Lainnya")
+              final finalCategory = _selectedCategory == 'Lainnya'
+                  ? _customCategoryController.text
+                  : _selectedCategory;
+
               final newReport = ReportModel(
                 id: _reportService.getNextId(),
                 title: _judulController.text,
                 description: _deskripsiController.text,
-                category: _selectedCategory,
+                category: finalCategory,
                 status: 'Diproses',
                 date: dateStr,
                 imageCount: _mediaItems.length,
@@ -520,23 +745,25 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
               _reportService.addReport(newReport);
 
               Navigator.pop(context);
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Laporan berhasil dikirim!\n$photoCount foto dan $videoCount video'
-                  ),
-                  backgroundColor: Colors.green,
-                  duration: const Duration(seconds: 3),
+
+              // Konversi ReportModel ke Map untuk ReportDetailScreen
+              final reportMap = {
+                'id': newReport.id,
+                'title': newReport.title,
+                'description': newReport.description,
+                'category': newReport.category,
+                'status': newReport.status,
+                'date': newReport.date,
+                'imageCount': newReport.imageCount,
+              };
+
+              // Navigasi ke ReportDetailScreen dengan data laporan baru
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ReportDetailScreen(report: reportMap),
                 ),
               );
-
-              Future.delayed(const Duration(milliseconds: 500), () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const DashboardScreen()),
-                );
-              });
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1453A3),
@@ -607,7 +834,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Judul
-                      const Text('Judul', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text('Judul',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _judulController,
@@ -627,7 +856,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                       const SizedBox(height: 20),
 
                       // Deskripsi
-                      const Text('Deskripsi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text('Deskripsi',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
                       TextField(
                         controller: _deskripsiController,
@@ -647,8 +878,82 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
                       const SizedBox(height: 20),
 
+                      // Tanggal Kejadian
+                      const Text('Tanggal Kejadian',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () async {
+                          final DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: _selectedDate ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.light(
+                                    primary: Color(0xFF1453A3),
+                                    onPrimary: Colors.white,
+                                    onSurface: Colors.black,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _selectedDate = picked;
+                            });
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F5F5),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_today,
+                                  color: Color(0xFF1453A3)),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  _selectedDate == null
+                                      ? 'Pilih tanggal kejadian'
+                                      : '${_selectedDate!.day.toString().padLeft(2, '0')}/${_selectedDate!.month.toString().padLeft(2, '0')}/${_selectedDate!.year}',
+                                  style: TextStyle(
+                                    color: _selectedDate == null
+                                        ? Colors.grey[400]
+                                        : Colors.black87,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                              if (_selectedDate != null)
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedDate = null;
+                                    });
+                                  },
+                                  child: const Icon(Icons.clear,
+                                      size: 20, color: Colors.grey),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
                       // Kategori
-                      const Text('Kategori', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Text('Kategori',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -658,38 +963,73 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
-                            value: _selectedCategory.isEmpty ? null : _selectedCategory,
-                            hint: Text('Pilih kategori', style: TextStyle(color: Colors.grey[400])),
+                            value: _selectedCategory.isEmpty
+                                ? null
+                                : _selectedCategory,
+                            hint: Text('Pilih kategori',
+                                style: TextStyle(color: Colors.grey[400])),
                             isExpanded: true,
                             icon: const Icon(Icons.keyboard_arrow_down),
                             items: _categories.map((category) {
-                              return DropdownMenuItem<String>(value: category, child: Text(category));
+                              return DropdownMenuItem<String>(
+                                  value: category, child: Text(category));
                             }).toList(),
                             onChanged: (value) {
                               setState(() {
                                 _selectedCategory = value ?? '';
+                                _showCustomCategory = value == 'Lainnya';
+                                if (value != 'Lainnya') {
+                                  _customCategoryController.clear();
+                                }
                               });
                             },
                           ),
                         ),
                       ),
 
+                      // Custom Category TextField (muncul kalau pilih "Lainnya")
+                      if (_showCustomCategory) ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _customCategoryController,
+                          decoration: InputDecoration(
+                            hintText: 'Masukkan kategori lainnya',
+                            hintStyle: TextStyle(color: Colors.grey[400]),
+                            filled: true,
+                            fillColor: const Color(0xFFF5F5F5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.all(16),
+                            prefixIcon: const Icon(Icons.edit,
+                                color: Color(0xFF1453A3)),
+                          ),
+                        ),
+                      ],
+
                       const SizedBox(height: 20),
 
                       // Media Section
                       Row(
                         children: [
-                          const Text('Bukti Media', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                          const Text('Bukti Media',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w600)),
                           const Spacer(),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: const Color(0xFF1453A3).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               '${_mediaItems.length}/5 media',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF1453A3), fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF1453A3),
+                                  fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],
@@ -706,9 +1046,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                             color: const Color(0xFFF5F5F5),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: _mediaItems.length >= 5 
-                                ? Colors.grey[300]! 
-                                : const Color(0xFF1453A3).withOpacity(0.3),
+                              color: _mediaItems.length >= 5
+                                  ? Colors.grey[300]!
+                                  : const Color(0xFF1453A3).withOpacity(0.3),
                               width: 2,
                               style: BorderStyle.solid,
                             ),
@@ -718,15 +1058,19 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                               Icon(
                                 Icons.add_a_photo,
                                 size: 40,
-                                color: _mediaItems.length >= 5 ? Colors.grey[400] : const Color(0xFF1453A3),
+                                color: _mediaItems.length >= 5
+                                    ? Colors.grey[400]
+                                    : const Color(0xFF1453A3),
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                _mediaItems.length >= 5 
-                                  ? 'Maksimal 5 media' 
-                                  : 'Tap untuk tambah foto/video',
+                                _mediaItems.length >= 5
+                                    ? 'Maksimal 5 media'
+                                    : 'Tap untuk tambah foto/video',
                                 style: TextStyle(
-                                  color: _mediaItems.length >= 5 ? Colors.grey[500] : Colors.grey[700],
+                                  color: _mediaItems.length >= 5
+                                      ? Colors.grey[500]
+                                      : Colors.grey[700],
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -735,13 +1079,21 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.photo, size: 14, color: Colors.grey[500]),
+                                  Icon(Icons.photo,
+                                      size: 14, color: Colors.grey[500]),
                                   const SizedBox(width: 4),
-                                  Text('Foto', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                                  Text('Foto',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[500])),
                                   const SizedBox(width: 12),
-                                  Icon(Icons.videocam, size: 14, color: Colors.grey[500]),
+                                  Icon(Icons.videocam,
+                                      size: 14, color: Colors.grey[500]),
                                   const SizedBox(width: 4),
-                                  Text('Video', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                                  Text('Video',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[500])),
                                 ],
                               ),
                             ],
@@ -755,7 +1107,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                         GridView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
@@ -787,7 +1140,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                           ),
                           child: const Text(
                             'Kirim Laporan',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),
@@ -850,7 +1204,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                       ),
           ),
         ),
-        
+
         // Type Badge
         Positioned(
           top: 8,
@@ -858,9 +1212,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: item.type == MediaType.image 
-                ? const Color(0xFF1453A3).withOpacity(0.9)
-                : const Color(0xFFE74C3C).withOpacity(0.9),
+              color: item.type == MediaType.image
+                  ? const Color(0xFF1453A3).withOpacity(0.9)
+                  : const Color(0xFFE74C3C).withOpacity(0.9),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Row(
@@ -875,13 +1229,16 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 if (item.type == MediaType.video && item.controller != null)
                   Text(
                     '${item.controller!.value.duration.inSeconds}s',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600),
                   ),
               ],
             ),
           ),
         ),
-        
+
         // Remove Button
         Positioned(
           top: 8,
@@ -922,17 +1279,29 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
           switch (index) {
             case 0:
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+              Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const DashboardScreen()));
               break;
             case 1:
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const StatisticsScreen()));
+              // FIX: Navigasi ke Reports (list), bukan create lagi
+              Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const ReportsScreen()));
               break;
             case 2:
-              // FIX: Navigasi ke Reports (list), bukan create lagi
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const ReportsScreen()));
+              Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const NotificationsScreen()));
               break;
             case 3:
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const NotificationsScreen()));
+              Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const MoreMenuScreen()));
               break;
           }
         },
@@ -944,10 +1313,22 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
         selectedFontSize: 12,
         unselectedFontSize: 12,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart_outlined), activeIcon: Icon(Icons.bar_chart), label: 'Grafik'),
-          BottomNavigationBarItem(icon: Icon(Icons.file_copy_outlined), activeIcon: Icon(Icons.file_copy), label: 'Laporan'),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), activeIcon: Icon(Icons.notifications), label: 'Notifikasi'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Beranda'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.file_copy_outlined),
+              activeIcon: Icon(Icons.file_copy),
+              label: 'Laporan'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.notifications_outlined),
+              activeIcon: Icon(Icons.notifications),
+              label: 'Notifikasi'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.menu),
+              activeIcon: Icon(Icons.menu),
+              label: 'Lainnya'),
         ],
       ),
     );
@@ -957,6 +1338,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   void dispose() {
     _judulController.dispose();
     _deskripsiController.dispose();
+    _customCategoryController.dispose();
     for (var item in _mediaItems) {
       if (item.type == MediaType.video && item.controller != null) {
         item.controller!.dispose();

@@ -5,6 +5,9 @@ class ImageCacheService {
   static const String _imagePathKey = 'cached_image_path';
   static const String _videoPathKey = 'cached_video_path';
   static const String _mediaTypeKey = 'cached_media_type';
+  static const String _reportTitleKey = 'cached_report_title';
+  static const String _reportDescriptionKey = 'cached_report_description';
+  static const String _reportCategoryKey = 'cached_report_category';
 
   // Save image from login
   Future<void> cacheImage(String imagePath) async {
@@ -24,7 +27,7 @@ class ImageCacheService {
   Future<File?> getCachedImage() async {
     final prefs = await SharedPreferences.getInstance();
     final imagePath = prefs.getString(_imagePathKey);
-    
+
     if (imagePath != null && File(imagePath).existsSync()) {
       return File(imagePath);
     }
@@ -40,7 +43,7 @@ class ImageCacheService {
   Future<File?> getCachedVideo() async {
     final prefs = await SharedPreferences.getInstance();
     final videoPath = prefs.getString(_videoPathKey);
-    
+
     if (videoPath != null && File(videoPath).existsSync()) {
       return File(videoPath);
     }
@@ -70,9 +73,9 @@ class ImageCacheService {
     final prefs = await SharedPreferences.getInstance();
     final imagePath = prefs.getString(_imagePathKey);
     final videoPath = prefs.getString(_videoPathKey);
-    
-    return (imagePath != null && File(imagePath).existsSync()) || 
-           (videoPath != null && File(videoPath).existsSync());
+
+    return (imagePath != null && File(imagePath).existsSync()) ||
+        (videoPath != null && File(videoPath).existsSync());
   }
 
   // NEW: Check if there's any cached media
@@ -86,7 +89,7 @@ class ImageCacheService {
     final imagePath = prefs.getString(_imagePathKey);
     final videoPath = prefs.getString(_videoPathKey);
     final mediaType = prefs.getString(_mediaTypeKey);
-    
+
     if (imagePath != null && File(imagePath).existsSync()) {
       return {
         'path': imagePath,
@@ -100,7 +103,7 @@ class ImageCacheService {
         'file': File(videoPath),
       };
     }
-    
+
     return null;
   }
 
@@ -110,5 +113,62 @@ class ImageCacheService {
     await prefs.remove(_imagePathKey);
     await prefs.remove(_videoPathKey);
     await prefs.remove(_mediaTypeKey);
+  }
+
+  // Cache report data before login
+  Future<void> cacheReportData({
+    required String title,
+    required String description,
+    required String category,
+    String? customCategory,
+    String? selectedDate,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_reportTitleKey, title);
+    await prefs.setString(_reportDescriptionKey, description);
+    await prefs.setString(_reportCategoryKey, category);
+    if (customCategory != null) {
+      await prefs.setString('_cachedCustomCategory', customCategory);
+    }
+    if (selectedDate != null) {
+      await prefs.setString('_cachedSelectedDate', selectedDate);
+    }
+  }
+
+  // Get cached report data
+  Future<Map<String, String>?> getCachedReportData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final title = prefs.getString(_reportTitleKey);
+    final description = prefs.getString(_reportDescriptionKey);
+    final category = prefs.getString(_reportCategoryKey);
+    final customCategory = prefs.getString('_cachedCustomCategory');
+    final selectedDate = prefs.getString('_cachedSelectedDate');
+
+    if (title != null && description != null && category != null) {
+      return {
+        'title': title,
+        'description': description,
+        'category': category,
+        if (customCategory != null) 'customCategory': customCategory,
+        if (selectedDate != null) 'selectedDate': selectedDate,
+      };
+    }
+    return null;
+  }
+
+  // Clear report data
+  Future<void> clearReportData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_reportTitleKey);
+    await prefs.remove(_reportDescriptionKey);
+    await prefs.remove(_reportCategoryKey);
+    await prefs.remove('_cachedCustomCategory');
+    await prefs.remove('_cachedSelectedDate');
+  }
+
+  // Check if has cached report data
+  Future<bool> hasCachedReportData() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey(_reportTitleKey);
   }
 }

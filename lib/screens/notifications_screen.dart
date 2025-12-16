@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
-import 'statistics_screen.dart';
 import 'reports_screen.dart';
+import 'more_menu_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -11,14 +11,15 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  int _selectedIndex = 3;
+  int _selectedIndex = 2;
 
   // Data notifikasi dengan pesan lebih detail
   final List<NotificationItem> _notifications = [
     NotificationItem(
       id: 1,
       sender: 'ADMIN',
-      message: 'Laporan Anda tentang "Plagiarisme Tugas Akhir" telah disetujui dan sedang diproses lebih lanjut oleh tim verifikasi. Anda akan mendapat update dalam 2x24 jam.',
+      message:
+          'Laporan Anda tentang "Plagiarisme Tugas Akhir" telah disetujui dan sedang diproses lebih lanjut oleh tim verifikasi. Anda akan mendapat update dalam 2x24 jam.',
       timestamp: DateTime.now().subtract(const Duration(minutes: 2)),
       type: NotificationType.approved,
       isRead: false,
@@ -26,7 +27,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     NotificationItem(
       id: 2,
       sender: 'DEA FAKULTAS',
-      message: 'Laporan kecurangan ujian yang Anda laporkan telah diverifikasi. Kami akan segera melakukan investigasi lebih lanjut dan menghubungi pihak terkait.',
+      message:
+          'Laporan kecurangan ujian yang Anda laporkan telah diverifikasi. Kami akan segera melakukan investigasi lebih lanjut dan menghubungi pihak terkait.',
       timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
       type: NotificationType.approved,
       isRead: false,
@@ -34,7 +36,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     NotificationItem(
       id: 3,
       sender: 'ADMIN SISTEM',
-      message: 'Laporan Anda dengan nomor #LP2024001 sedang menunggu verifikasi dari Dosen Pembimbing Akademik. Mohon bersabar, proses verifikasi memakan waktu 1-3 hari kerja.',
+      message:
+          'Laporan Anda dengan nomor #LP2024001 sedang menunggu verifikasi dari Dosen Pembimbing Akademik. Mohon bersabar, proses verifikasi memakan waktu 1-3 hari kerja.',
       timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
       type: NotificationType.pending,
       isRead: false,
@@ -42,15 +45,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     NotificationItem(
       id: 4,
       sender: 'TIM VERIFIKASI',
-      message: 'Laporan "Titip Absen di Kelas" sedang dalam tahap investigasi mendalam. Tim kami telah mengumpulkan bukti dan akan melakukan wawancara dengan saksi dalam waktu dekat.',
-      timestamp: DateTime.now().subtract(const Duration(hours: 14, minutes: 30)),
+      message:
+          'Laporan "Titip Absen di Kelas" sedang dalam tahap investigasi mendalam. Tim kami telah mengumpulkan bukti dan akan melakukan wawancara dengan saksi dalam waktu dekat.',
+      timestamp:
+          DateTime.now().subtract(const Duration(hours: 14, minutes: 30)),
       type: NotificationType.processing,
       isRead: true,
     ),
     NotificationItem(
       id: 5,
       sender: 'ADMIN',
-      message: 'Laporan Anda ditolak karena kurangnya bukti pendukung yang valid. Silakan melengkapi dokumen pendukung seperti foto, video, atau saksi yang dapat memverifikasi kejadian tersebut.',
+      message:
+          'Laporan Anda ditolak karena kurangnya bukti pendukung yang valid. Silakan melengkapi dokumen pendukung seperti foto, video, atau saksi yang dapat memverifikasi kejadian tersebut.',
       timestamp: DateTime.now().subtract(const Duration(days: 1)),
       type: NotificationType.rejected,
       isRead: true,
@@ -58,7 +64,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     NotificationItem(
       id: 6,
       sender: 'SISTEM',
-      message: 'Sistem Academic Report akan menjalani maintenance terjadwal pada hari Minggu, 28 Januari 2025 pukul 00.00-02.00 WIB. Mohon maaf atas ketidaknyamanannya.',
+      message:
+          'Sistem Academic Report akan menjalani maintenance terjadwal pada hari Minggu, 28 Januari 2025 pukul 00.00-02.00 WIB. Mohon maaf atas ketidaknyamanannya.',
       timestamp: DateTime.now().subtract(const Duration(days: 2)),
       type: NotificationType.info,
       isRead: true,
@@ -138,9 +145,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            _unreadCount > 0 
-                              ? '$_unreadCount pesan belum dibaca'
-                              : 'Semua pesan sudah dibaca',
+                            _unreadCount > 0
+                                ? '$_unreadCount pesan belum dibaca'
+                                : 'Semua pesan sudah dibaca',
                             style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 13,
@@ -168,9 +175,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.notifications_off_outlined, size: 80, color: Colors.grey[400]),
+                        Icon(Icons.notifications_off_outlined,
+                            size: 80, color: Colors.grey[400]),
                         const SizedBox(height: 16),
-                        Text('Tidak ada notifikasi', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                        Text('Tidak ada notifikasi',
+                            style: TextStyle(
+                                fontSize: 16, color: Colors.grey[600])),
                       ],
                     ),
                   )
@@ -190,9 +200,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             ),
                           ),
                         ),
-                        ...recentNotifications.map((notification) => _buildNotificationCard(notification)),
+                        ...recentNotifications.map((notification) =>
+                            _buildNotificationCard(notification)),
                       ],
-                      
+
                       // Older notifications
                       if (olderNotifications.isNotEmpty) ...[
                         const SizedBox(height: 16),
@@ -207,7 +218,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             ),
                           ),
                         ),
-                        ...olderNotifications.map((notification) => _buildNotificationCard(notification)),
+                        ...olderNotifications.map((notification) =>
+                            _buildNotificationCard(notification)),
                       ],
                     ],
                   ),
@@ -289,7 +301,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               onPressed: () {
                 setState(() {
                   _notifications.add(notification);
-                  _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+                  _notifications
+                      .sort((a, b) => b.timestamp.compareTo(a.timestamp));
                 });
               },
             ),
@@ -302,7 +315,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           color: notification.isRead ? Colors.white : bgColor.withOpacity(0.05),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: notification.isRead ? Colors.grey[200]! : bgColor.withOpacity(0.2),
+            color: notification.isRead
+                ? Colors.grey[200]!
+                : bgColor.withOpacity(0.2),
             width: 1.5,
           ),
           boxShadow: [
@@ -392,11 +407,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            Icon(Icons.access_time, size: 13, color: Colors.grey[500]),
+                            Icon(Icons.access_time,
+                                size: 13, color: Colors.grey[500]),
                             const SizedBox(width: 4),
                             Text(
                               _formatTimestamp(notification.timestamp),
-                              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey[500]),
                             ),
                           ],
                         ),
@@ -472,7 +489,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     const Expanded(
                       child: Text(
                         'Detail Notifikasi',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                     ),
                     IconButton(
@@ -487,7 +505,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: bgColor.withOpacity(0.15), // FIX: ganti withValues jadi withOpacity
+                      color: bgColor.withOpacity(
+                          0.15), // FIX: ganti withValues jadi withOpacity
                       shape: BoxShape.circle,
                     ),
                     child: Icon(iconData, color: iconColor, size: 40),
@@ -496,7 +515,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 const SizedBox(height: 20),
                 Text(
                   notification.sender,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -514,7 +534,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   child: Text(
                     notification.message,
-                    style: TextStyle(fontSize: 15, color: Colors.grey[800], height: 1.6),
+                    style: TextStyle(
+                        fontSize: 15, color: Colors.grey[800], height: 1.6),
                     textAlign: TextAlign.justify,
                   ),
                 ),
@@ -567,7 +588,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1), // FIX: ganti withValues jadi withOpacity
+            color: Colors.black
+                .withOpacity(0.1), // FIX: ganti withValues jadi withOpacity
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -581,7 +603,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         currentIndex: _selectedIndex,
         onTap: (index) {
           if (_selectedIndex == index) return;
-          
+
           setState(() {
             _selectedIndex = index;
           });
@@ -590,23 +612,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             case 0:
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const DashboardScreen()),
+                MaterialPageRoute(
+                    builder: (context) => const DashboardScreen()),
               );
               break;
             case 1:
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(builder: (context) => const StatisticsScreen()),
-              );
-              break;
-            case 2:
-              Navigator.pushReplacement(
-                context,
                 MaterialPageRoute(builder: (context) => const ReportsScreen()),
               );
               break;
-            case 3:
+            case 2:
               // Sudah di Notifications
+              break;
+            case 3:
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const MoreMenuScreen()),
+              );
               break;
           }
         },
@@ -624,11 +647,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             label: 'Beranda',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            activeIcon: Icon(Icons.bar_chart),
-            label: 'Grafik',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.file_copy_outlined),
             activeIcon: Icon(Icons.file_copy),
             label: 'Laporan',
@@ -637,6 +655,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             icon: Icon(Icons.notifications_outlined),
             activeIcon: Icon(Icons.notifications),
             label: 'Notifikasi',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.menu),
+            activeIcon: Icon(Icons.menu),
+            label: 'Lainnya',
           ),
         ],
       ),

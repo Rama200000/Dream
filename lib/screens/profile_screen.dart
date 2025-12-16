@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/user_model.dart';
 import 'edit_profile_screen.dart';
 import 'login_screen.dart';
+import 'change_password_screen.dart';
+import 'help_support_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,14 +17,109 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Data user dummy
+  // Data user dari login
   UserModel user = UserModel(
-    name: 'Gede Rama Jayakusuma',
-    email: 'rama.jayakusuma@polinela.ac.id',
-    phone: '085233740141',
-    nim: '23759034',
-    jurusan: 'Teknologi Informasi',
+    name: 'Guest',
+    email: '',
+    phone: '',
+    nim: '',
+    jurusan: '',
   );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  // Memuat data user dari SharedPreferences
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Load data login
+    final userName = prefs.getString('userName') ?? 'Guest';
+    final userEmail = prefs.getString('userEmail') ?? '';
+    final userPhoto = prefs.getString('userPhoto') ?? '';
+
+    // Load data profil tambahan (jika ada)
+    final phone = prefs.getString('userPhone') ?? '';
+    final nim = prefs.getString('userNim') ?? '';
+    final jurusan = prefs.getString('userJurusan') ?? '';
+
+    setState(() {
+      user = UserModel(
+        name: userName,
+        email: userEmail,
+        phone: phone,
+        nim: nim,
+        jurusan: jurusan,
+        photoUrl: userPhoto.isNotEmpty ? userPhoto : null,
+      );
+    });
+
+    // Jika foto dari Google, tidak perlu load dari local file
+    if (userPhoto.isEmpty) {
+      await _loadProfilePhoto();
+    }
+  }
+
+  // Memuat foto profil yang tersimpan locally
+  Future<void> _loadProfilePhoto() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPhotoPath = prefs.getString('profile_photo_path');
+    if (savedPhotoPath != null && savedPhotoPath.isNotEmpty) {
+      // Cek apakah file masih ada
+      final file = File(savedPhotoPath);
+      if (await file.exists()) {
+        setState(() {
+          user.photoUrl = savedPhotoPath;
+        });
+      }
+    }
+  }
+
+  // Menyimpan foto profil
+  Future<void> _saveProfilePhoto(String photoPath) async {
+    try {
+      // Salin file ke direktori aplikasi agar permanen
+      final appDir = await getApplicationDocumentsDirectory();
+      final fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final savedImage = File('${appDir.path}/$fileName');
+
+      // Salin file
+      await File(photoPath).copy(savedImage.path);
+
+      // Simpan path ke SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('profile_photo_path', savedImage.path);
+      await prefs.setString('userPhoto', savedImage.path);
+
+      return;
+    } catch (e) {
+      debugPrint('Error saving profile photo: $e');
+    }
+  }
+
+  // Menghapus foto profil
+  Future<void> _deleteProfilePhoto() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedPhotoPath = prefs.getString('profile_photo_path');
+
+      // Hapus file jika ada
+      if (savedPhotoPath != null) {
+        final file = File(savedPhotoPath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+
+      // Hapus dari SharedPreferences
+      await prefs.remove('profile_photo_path');
+    } catch (e) {
+      debugPrint('Error deleting profile photo: $e');
+    }
+  }
 
   void _showLogoutDialog() {
     showDialog(
@@ -80,13 +179,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 final XFile? photo =
                     await picker.pickImage(source: ImageSource.camera);
                 if (photo != null) {
-                  setState(() {
-                    user.photoUrl = photo.path;
-                  });
+                  await _saveProfilePhoto(photo.path);
+                  await _loadProfilePhoto();
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Foto profil berhasil diubah'),
+                        content: Text('Foto profil berhasil disimpan'),
                         backgroundColor: Colors.green,
                       ),
                     );
@@ -103,13 +201,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 final XFile? photo =
                     await picker.pickImage(source: ImageSource.gallery);
                 if (photo != null) {
-                  setState(() {
-                    user.photoUrl = photo.path;
-                  });
+                  await _saveProfilePhoto(photo.path);
+                  await _loadProfilePhoto();
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Foto profil berhasil diubah'),
+                        content: Text('Foto profil berhasil disimpan'),
                         backgroundColor: Colors.green,
                       ),
                     );
@@ -121,17 +218,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
                 title: const Text('Hapus Foto'),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context);
+                  await _deleteProfilePhoto();
                   setState(() {
                     user.photoUrl = null;
                   });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Foto profil dihapus'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Foto profil berhasil dihapus'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
                 },
               ),
           ],
@@ -218,19 +318,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 3),
                           ),
-                          child: user.photoUrl != null && user.photoUrl!.isNotEmpty
-                              ? CircleAvatar(
-                                  radius: 50,
-                                  backgroundImage: user.photoUrl!.startsWith('http')
-                                      ? NetworkImage(user.photoUrl!)
-                                      : FileImage(File(user.photoUrl!)) as ImageProvider,
-                                  backgroundColor: Colors.transparent,
-                                )
-                              : const CircleAvatar(
-                                  radius: 50,
-                                  backgroundImage: AssetImage('assets/profil.png'),
-                                  backgroundColor: Colors.transparent,
-                                ),
+                          child:
+                              user.photoUrl != null && user.photoUrl!.isNotEmpty
+                                  ? CircleAvatar(
+                                      radius: 50,
+                                      backgroundImage:
+                                          user.photoUrl!.startsWith('http')
+                                              ? NetworkImage(user.photoUrl!)
+                                              : FileImage(File(user.photoUrl!))
+                                                  as ImageProvider,
+                                      backgroundColor: Colors.transparent,
+                                    )
+                                  : const CircleAvatar(
+                                      radius: 50,
+                                      backgroundImage:
+                                          AssetImage('assets/profil.png'),
+                                      backgroundColor: Colors.transparent,
+                                    ),
                         ),
                         Positioned(
                           bottom: 0,
@@ -313,10 +417,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.lock_outline,
                       title: 'Ubah Password',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content:
-                                  Text('Fitur Ubah Password - Coming Soon')),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ChangePasswordScreen(),
+                          ),
                         );
                       },
                     ),
@@ -325,9 +430,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.help_outline,
                       title: 'Bantuan & Dukungan',
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Fitur Bantuan - Coming Soon')),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const HelpSupportScreen(),
+                          ),
                         );
                       },
                     ),

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
-import 'statistics_screen.dart';
 import 'notifications_screen.dart';
-import 'create_report_screen.dart';
+import 'more_menu_screen.dart';
 import 'report_detail_screen.dart';
 import '../services/report_service.dart';
 import '../models/report_model.dart';
@@ -15,30 +14,31 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  int _selectedIndex = 2;
+  int _selectedIndex = 1;
   final ReportService _reportService = ReportService();
   String _selectedFilter = 'Semua';
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  
+
   List<ReportModel> get _allReports => _reportService.getAllReports();
-  
+
   List<ReportModel> get _filteredReports {
     var reports = _allReports;
-    
+
     // Filter by status
     if (_selectedFilter != 'Semua') {
       reports = reports.where((r) => r.status == _selectedFilter).toList();
     }
-    
+
     // Filter by search query
     if (_searchQuery.isNotEmpty) {
-      reports = reports.where((r) => 
-        r.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-        r.category.toLowerCase().contains(_searchQuery.toLowerCase())
-      ).toList();
+      reports = reports
+          .where((r) =>
+              r.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              r.category.toLowerCase().contains(_searchQuery.toLowerCase()))
+          .toList();
     }
-    
+
     return reports;
   }
 
@@ -97,17 +97,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back, color: Colors.white),
+                          icon:
+                              const Icon(Icons.arrow_back, color: Colors.white),
                           onPressed: () {
                             Navigator.pushReplacement(
                               context,
-                              MaterialPageRoute(builder: (context) => const DashboardScreen()),
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const DashboardScreen()),
                             );
                           },
                         ),
                         const Expanded(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Laporan Saya',
@@ -128,15 +131,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 28),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const CreateReportScreen()),
-                            ).then((_) => setState(() {}));
-                          },
-                        ),
+                        const SizedBox(
+                            width:
+                                48), // Placeholder untuk menjaga keseimbangan layout
                       ],
                     ),
 
@@ -157,10 +154,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         },
                         decoration: InputDecoration(
                           hintText: 'Cari laporan...',
-                          prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                          prefixIcon:
+                              Icon(Icons.search, color: Colors.grey[600]),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
-                                  icon: Icon(Icons.clear, color: Colors.grey[600]),
+                                  icon: Icon(Icons.clear,
+                                      color: Colors.grey[600]),
                                   onPressed: () {
                                     setState(() {
                                       _searchController.clear();
@@ -170,7 +169,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                 )
                               : null,
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
                         ),
                       ),
                     ),
@@ -235,13 +235,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _searchQuery.isNotEmpty ? Icons.search_off : Icons.description_outlined,
+                          _searchQuery.isNotEmpty
+                              ? Icons.search_off
+                              : Icons.description_outlined,
                           size: 80,
                           color: Colors.grey[400],
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          _searchQuery.isNotEmpty ? 'Tidak ada hasil' : 'Belum ada laporan',
+                          _searchQuery.isNotEmpty
+                              ? 'Tidak ada hasil'
+                              : 'Belum ada laporan',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
@@ -250,7 +254,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          _searchQuery.isNotEmpty 
+                          _searchQuery.isNotEmpty
                               ? 'Coba kata kunci lain'
                               : 'Tap tombol + untuk membuat laporan baru',
                           style: TextStyle(
@@ -273,30 +277,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ],
       ),
       bottomNavigationBar: _buildBottomNavBar(),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CreateReportScreen()),
-          ).then((_) => setState(() {}));
-        },
-        backgroundColor: const Color(0xFF1453A3),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Buat Laporan',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
     );
   }
 
   Widget _buildFilterChip(String label, IconData icon) {
     final isSelected = _selectedFilter == label;
     Color chipColor;
-    
+
     switch (label) {
       case 'Diproses':
         chipColor = const Color(0xFFFFA726);
@@ -518,7 +505,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       runSpacing: 8,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: const Color(0xFF1453A3).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
@@ -526,7 +514,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.category, size: 14, color: Color(0xFF1453A3)),
+                              const Icon(Icons.category,
+                                  size: 14, color: Color(0xFF1453A3)),
                               const SizedBox(width: 4),
                               Text(
                                 report.category,
@@ -541,7 +530,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ),
                         if (report.imageCount > 0)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
                               color: const Color(0xFF9575CD).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
@@ -549,7 +539,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.attach_file, size: 14, color: Color(0xFF9575CD)),
+                                const Icon(Icons.attach_file,
+                                    size: 14, color: Color(0xFF9575CD)),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${report.imageCount} file',
@@ -567,7 +558,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.calendar_today, size: 12, color: Colors.grey[500]),
+                        Icon(Icons.calendar_today,
+                            size: 12, color: Colors.grey[500]),
                         const SizedBox(width: 4),
                         Text(
                           report.date,
@@ -612,16 +604,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
           switch (index) {
             case 0:
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const DashboardScreen()));
+              Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const DashboardScreen()));
               break;
             case 1:
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const StatisticsScreen()));
-              break;
-            case 2:
               // Sudah di Reports
               break;
+            case 2:
+              Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const NotificationsScreen()));
+              break;
             case 3:
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const NotificationsScreen()));
+              Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const MoreMenuScreen()));
               break;
           }
         },
@@ -633,10 +634,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
         selectedFontSize: 12,
         unselectedFontSize: 12,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Beranda'),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart_outlined), activeIcon: Icon(Icons.bar_chart), label: 'Grafik'),
-          BottomNavigationBarItem(icon: Icon(Icons.file_copy_outlined), activeIcon: Icon(Icons.file_copy), label: 'Laporan'),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), activeIcon: Icon(Icons.notifications), label: 'Notifikasi'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Beranda'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.file_copy_outlined),
+              activeIcon: Icon(Icons.file_copy),
+              label: 'Laporan'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.notifications_outlined),
+              activeIcon: Icon(Icons.notifications),
+              label: 'Notifikasi'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.menu),
+              activeIcon: Icon(Icons.menu),
+              label: 'Lainnya'),
         ],
       ),
     );
