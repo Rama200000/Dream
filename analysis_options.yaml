@@ -28,8 +28,8 @@ linter:
 
 analyzer:
   errors:
-    # Atau disable semua implicit-return-null
-    implicit-return-null: ignore
+    # Disable void_checks warning
+    void_checks: ignore
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

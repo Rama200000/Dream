@@ -261,10 +261,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         iconData = Icons.info;
         bgColor = const Color(0xFF9575CD);
         break;
-      default:
-        iconColor = Colors.grey;
-        iconData = Icons.notifications;
-        bgColor = Colors.grey;
     }
 
     return Dismissible(
@@ -461,10 +457,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         iconData = Icons.info;
         bgColor = const Color(0xFF9575CD);
         break;
-      default:
-        iconColor = Colors.grey;
-        iconData = Icons.notifications;
-        bgColor = Colors.grey;
     }
 
     showModalBottomSheet(

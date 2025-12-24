@@ -8,6 +8,7 @@ class ImageCacheService {
   static const String _reportTitleKey = 'cached_report_title';
   static const String _reportDescriptionKey = 'cached_report_description';
   static const String _reportCategoryKey = 'cached_report_category';
+  static const String _reportLocationKey = 'cached_report_location';
 
   // Save image from login
   Future<void> cacheImage(String imagePath) async {
@@ -88,7 +89,6 @@ class ImageCacheService {
     final prefs = await SharedPreferences.getInstance();
     final imagePath = prefs.getString(_imagePathKey);
     final videoPath = prefs.getString(_videoPathKey);
-    final mediaType = prefs.getString(_mediaTypeKey);
 
     if (imagePath != null && File(imagePath).existsSync()) {
       return {
@@ -122,6 +122,7 @@ class ImageCacheService {
     required String category,
     String? customCategory,
     String? selectedDate,
+    String? location,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_reportTitleKey, title);
@@ -133,6 +134,9 @@ class ImageCacheService {
     if (selectedDate != null) {
       await prefs.setString('_cachedSelectedDate', selectedDate);
     }
+    if (location != null) {
+      await prefs.setString(_reportLocationKey, location);
+    }
   }
 
   // Get cached report data
@@ -143,6 +147,7 @@ class ImageCacheService {
     final category = prefs.getString(_reportCategoryKey);
     final customCategory = prefs.getString('_cachedCustomCategory');
     final selectedDate = prefs.getString('_cachedSelectedDate');
+    final location = prefs.getString(_reportLocationKey);
 
     if (title != null && description != null && category != null) {
       return {
@@ -151,6 +156,7 @@ class ImageCacheService {
         'category': category,
         if (customCategory != null) 'customCategory': customCategory,
         if (selectedDate != null) 'selectedDate': selectedDate,
+        if (location != null) 'location': location,
       };
     }
     return null;
@@ -164,6 +170,7 @@ class ImageCacheService {
     await prefs.remove(_reportCategoryKey);
     await prefs.remove('_cachedCustomCategory');
     await prefs.remove('_cachedSelectedDate');
+    await prefs.remove(_reportLocationKey);
   }
 
   // Check if has cached report data

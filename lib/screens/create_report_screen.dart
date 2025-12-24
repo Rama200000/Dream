@@ -3,12 +3,14 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:video_player/video_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'dashboard_screen.dart';
 import 'reports_screen.dart';
 import 'notifications_screen.dart';
 import 'more_menu_screen.dart';
 import 'report_detail_screen.dart';
 import 'login_screen.dart';
+import 'map_location_picker.dart';
 import '../services/image_cache_service.dart';
 import '../services/report_service.dart';
 import '../services/google_auth_service.dart';
@@ -22,13 +24,14 @@ class CreateReportScreen extends StatefulWidget {
 }
 
 class _CreateReportScreenState extends State<CreateReportScreen> {
-  final TextEditingController _judulController = TextEditingController();
   final TextEditingController _deskripsiController = TextEditingController();
   final TextEditingController _customCategoryController =
       TextEditingController();
+  final TextEditingController _lokasiController = TextEditingController();
   String _selectedCategory = '';
   DateTime? _selectedDate;
   bool _showCustomCategory = false;
+  LatLng? _selectedLocationCoordinates;
 
   // Media files
   List<MediaItem> _mediaItems = [];
@@ -410,6 +413,33 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     );
   }
 
+  Future<void> _openMapPicker() async {
+    final result = await Navigator.push<LatLng>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MapLocationPicker(
+          initialLocation: _selectedLocationCoordinates,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedLocationCoordinates = result;
+        _lokasiController.text =
+            'Lat: ${result.latitude.toStringAsFixed(6)}, Long: ${result.longitude.toStringAsFixed(6)}';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lokasi berhasil dipilih dari peta'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   void _removeMedia(int index) {
     final item = _mediaItems[index];
     if (item.type == MediaType.video && item.controller != null) {
@@ -431,10 +461,10 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
   void _submitReport() async {
     // Validasi
-    if (_judulController.text.isEmpty) {
+    if (_selectedCategory.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Judul laporan harus diisi!'),
+          content: Text('Judul laporan harus dipilih!'),
           backgroundColor: Colors.red,
         ),
       );
@@ -445,16 +475,6 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Deskripsi laporan harus diisi!'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (_selectedCategory.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Kategori harus dipilih!'),
           backgroundColor: Colors.red,
         ),
       );
@@ -476,6 +496,16 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Tanggal kejadian harus dipilih!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_lokasiController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Lokasi kejadian harus diisi!'),
           backgroundColor: Colors.red,
         ),
       );
@@ -536,14 +566,20 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             ? '${_selectedDate!.day} ${months[_selectedDate!.month - 1]} ${_selectedDate!.year}'
             : '';
 
+        // Get final category (gunakan custom jika \"Lainnya\")
+        final finalCategory = _selectedCategory == 'Lainnya'
+            ? _customCategoryController.text
+            : _selectedCategory;
+
         await _imageCacheService.cacheReportData(
-          title: _judulController.text,
+          title: finalCategory,
           description: _deskripsiController.text,
           category: _selectedCategory,
           customCategory: _selectedCategory == 'Lainnya'
               ? _customCategoryController.text
               : null,
           selectedDate: dateStr,
+          location: _lokasiController.text,
         );
 
         // Arahkan ke login screen
@@ -599,7 +635,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     }
 
     // Gunakan data dari cache
-    final title = cachedData['title'] ?? _judulController.text;
+    final title = cachedData['title'] ?? '';
     final description = cachedData['description'] ?? _deskripsiController.text;
     final category = cachedData['category'] ?? _selectedCategory;
     final customCategory = cachedData['customCategory'];
@@ -734,7 +770,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
               final newReport = ReportModel(
                 id: _reportService.getNextId(),
-                title: _judulController.text,
+                title: finalCategory,
                 description: _deskripsiController.text,
                 category: finalCategory,
                 status: 'Diproses',
@@ -833,25 +869,63 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Judul
+                      // Judul (Kategori)
                       const Text('Judul',
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
-                      TextField(
-                        controller: _judulController,
-                        decoration: InputDecoration(
-                          hintText: 'Masukkan judul laporan',
-                          hintStyle: TextStyle(color: Colors.grey[400]),
-                          filled: true,
-                          fillColor: const Color(0xFFF5F5F5),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F5F5),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedCategory.isEmpty
+                                ? null
+                                : _selectedCategory,
+                            hint: Text('Pilih kategori',
+                                style: TextStyle(color: Colors.grey[400])),
+                            isExpanded: true,
+                            icon: const Icon(Icons.keyboard_arrow_down),
+                            items: _categories.map((category) {
+                              return DropdownMenuItem<String>(
+                                  value: category, child: Text(category));
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedCategory = value ?? '';
+                                _showCustomCategory = value == 'Lainnya';
+                                if (value != 'Lainnya') {
+                                  _customCategoryController.clear();
+                                }
+                              });
+                            },
                           ),
-                          contentPadding: const EdgeInsets.all(16),
                         ),
                       ),
+
+                      // Custom Category TextField (muncul kalau pilih "Lainnya")
+                      if (_showCustomCategory) ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _customCategoryController,
+                          decoration: InputDecoration(
+                            hintText: 'Masukkan kategori lainnya',
+                            hintStyle: TextStyle(color: Colors.grey[400]),
+                            filled: true,
+                            fillColor: const Color(0xFFF5F5F5),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            contentPadding: const EdgeInsets.all(16),
+                            prefixIcon: const Icon(Icons.edit,
+                                color: Color(0xFF1453A3)),
+                          ),
+                        ),
+                      ],
 
                       const SizedBox(height: 20),
 
@@ -950,63 +1024,92 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
                       const SizedBox(height: 20),
 
-                      // Kategori
-                      const Text('Kategori',
+                      // Lokasi Kejadian
+                      const Text('Lokasi Kejadian',
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F5F5),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedCategory.isEmpty
-                                ? null
-                                : _selectedCategory,
-                            hint: Text('Pilih kategori',
-                                style: TextStyle(color: Colors.grey[400])),
-                            isExpanded: true,
-                            icon: const Icon(Icons.keyboard_arrow_down),
-                            items: _categories.map((category) {
-                              return DropdownMenuItem<String>(
-                                  value: category, child: Text(category));
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedCategory = value ?? '';
-                                _showCustomCategory = value == 'Lainnya';
-                                if (value != 'Lainnya') {
-                                  _customCategoryController.clear();
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-
-                      // Custom Category TextField (muncul kalau pilih "Lainnya")
-                      if (_showCustomCategory) ...[
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _customCategoryController,
-                          decoration: InputDecoration(
-                            hintText: 'Masukkan kategori lainnya',
-                            hintStyle: TextStyle(color: Colors.grey[400]),
-                            filled: true,
-                            fillColor: const Color(0xFFF5F5F5),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _lokasiController,
+                              decoration: InputDecoration(
+                                hintText:
+                                    'Masukkan lokasi atau pilih dari peta',
+                                hintStyle: TextStyle(color: Colors.grey[400]),
+                                filled: true,
+                                fillColor: const Color(0xFFF5F5F5),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: const EdgeInsets.all(16),
+                                prefixIcon: const Icon(Icons.location_on,
+                                    color: Color(0xFF1453A3)),
+                                suffixIcon: _lokasiController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 20),
+                                        onPressed: () {
+                                          setState(() {
+                                            _lokasiController.clear();
+                                            _selectedLocationCoordinates = null;
+                                          });
+                                        },
+                                      )
+                                    : null,
+                              ),
+                              onChanged: (value) {
+                                setState(() {});
+                              },
                             ),
-                            contentPadding: const EdgeInsets.all(16),
-                            prefixIcon: const Icon(Icons.edit,
-                                color: Color(0xFF1453A3)),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1453A3),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.map, color: Colors.white),
+                              onPressed: _openMapPicker,
+                              tooltip: 'Pilih dari Peta',
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_selectedLocationCoordinates != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.green.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle,
+                                    color: Colors.green, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Lokasi dipilih dari peta',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.green[800],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ],
 
                       const SizedBox(height: 20),
 
@@ -1336,9 +1439,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
   @override
   void dispose() {
-    _judulController.dispose();
     _deskripsiController.dispose();
     _customCategoryController.dispose();
+    _lokasiController.dispose();
     for (var item in _mediaItems) {
       if (item.type == MediaType.video && item.controller != null) {
         item.controller!.dispose();

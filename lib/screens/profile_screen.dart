@@ -446,7 +446,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _showAboutDialog();
                       },
                     ),
-                    const SizedBox(height: 30),
+        
 
                     // Logout Button
                     SizedBox(

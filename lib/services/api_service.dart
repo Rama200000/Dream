@@ -25,6 +25,11 @@ class ApiService {
     await prefs.setString('api_token', token);
   }
 
+  Future<void> _removeToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('api_token');
+  }
+
   // Auth - Login
   Future<Map<String, dynamic>> login(String email, String password) async {
     final response = await http.post(

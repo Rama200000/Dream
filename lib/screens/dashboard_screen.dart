@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 import 'reports_screen.dart';
 import 'notifications_screen.dart';
 import 'more_menu_screen.dart';
@@ -11,6 +13,7 @@ import 'profile_screen.dart';
 import 'help_support_screen.dart';
 import 'settings_screen.dart';
 import '../services/google_auth_service.dart';
+import '../services/image_cache_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -23,11 +26,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GoogleAuthService _googleAuthService = GoogleAuthService();
+  final ImageCacheService _imageCacheService = ImageCacheService();
 
   String _userName = 'User Name';
   String _userEmail = 'user@example.com';
   String? _userPhotoUrl; // NEW: Tambah photo URL
   String? _profilePhotoPath; // Foto profil lokal dari SharedPreferences
+
+  // Media yang sudah diambil
+  File? _capturedMediaFile;
+  bool _isMediaVideo = false;
+  VideoPlayerController? _videoPreviewController;
 
   @override
   void initState() {
@@ -143,16 +152,299 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Handle pembuatan laporan - langsung ke create report (cek login nanti saat submit)
   void _handleCreateReport() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreateReportScreen(),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Upload Bukti',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Pilih sumber file yang ingin Anda upload',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.black54,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                // Kamera Section
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Dari Kamera',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMediaOption(
+                        icon: Icons.camera_alt,
+                        label: 'Foto',
+                        color: const Color(0xFF1453A3),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          await _captureMedia(ImageSource.camera,
+                              isVideo: false);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildMediaOption(
+                        icon: Icons.videocam,
+                        label: 'Video',
+                        color: const Color(0xFFE74C3C),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          await _captureMedia(ImageSource.camera,
+                              isVideo: true);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Galeri Section
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Dari Galeri',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMediaOption(
+                        icon: Icons.photo_library,
+                        label: 'Foto',
+                        color: const Color(0xFF66BB6A),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          await _captureMedia(ImageSource.gallery,
+                              isVideo: false);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildMediaOption(
+                        icon: Icons.video_library,
+                        label: 'Video',
+                        color: const Color(0xFFFFA726),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          await _captureMedia(ImageSource.gallery,
+                              isVideo: true);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Batal'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-    ).then((_) {
-      // Refresh user info jika ada perubahan setelah kembali
-      _loadUserInfo();
-      _loadProfilePhoto();
-    });
+    );
+  }
+
+  Widget _buildMediaOption({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 36, color: color),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _captureMedia(ImageSource source,
+      {required bool isVideo}) async {
+    final ImagePicker picker = ImagePicker();
+
+    try {
+      if (isVideo) {
+        final XFile? video = await picker.pickVideo(
+          source: source,
+          maxDuration: const Duration(minutes: 2),
+        );
+
+        if (video != null) {
+          // Simpan video ke cache
+          await _imageCacheService.cacheVideo(video.path);
+
+          // Initialize video player untuk preview
+          final controller = VideoPlayerController.file(File(video.path));
+          try {
+            await controller.initialize();
+            setState(() {
+              _capturedMediaFile = File(video.path);
+              _isMediaVideo = true;
+              _videoPreviewController = controller;
+            });
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Video berhasil diambil! Tekan tombol Laporan untuk melanjutkan'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Gagal memuat video: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        }
+      } else {
+        final XFile? photo = await picker.pickImage(
+          source: source,
+          imageQuality: 85,
+        );
+
+        if (photo != null) {
+          // Simpan foto ke cache
+          await _imageCacheService.cacheImage(photo.path);
+
+          setState(() {
+            _capturedMediaFile = File(photo.path);
+            _isMediaVideo = false;
+            _videoPreviewController?.dispose();
+            _videoPreviewController = null;
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Foto berhasil diambil! Tekan tombol Laporan untuk melanjutkan'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengambil ${isVideo ? "video" : "foto"}: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _openCreateReport() {
+    if (_capturedMediaFile != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const CreateReportScreen(),
+        ),
+      ).then((_) {
+        // Clear captured media setelah kembali dari create report
+        setState(() {
+          _capturedMediaFile = null;
+          _isMediaVideo = false;
+          _videoPreviewController?.dispose();
+          _videoPreviewController = null;
+        });
+        _loadUserInfo();
+        _loadProfilePhoto();
+      });
+    } else {
+      // Jika belum ada media, buka dialog pilihan
+      _handleCreateReport();
+    }
+  }
+
+  @override
+  void dispose() {
+    _videoPreviewController?.dispose();
+    super.dispose();
   }
 
   void _showLogoutDialog() {
@@ -320,75 +612,309 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.symmetric(vertical: 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Tombol Kamera Besar di Tengah
-                      Center(
-                        child: Container(
-                          width: double.infinity,
-                          height: 200,
-                          margin: const EdgeInsets.symmetric(horizontal: 20),
-                          child: InkWell(
-                            onTap: () {
-                              _handleCreateReport();
-                            },
-                            borderRadius: BorderRadius.circular(24),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFF1453A3),
-                                    Color(0xFF2E78D4)
-                                  ],
+                      // Card Upload File - Full Width
+                      // Card dengan icon upload
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: InkWell(
+                          onTap: () {
+                            _handleCreateReport();
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            width: double.infinity,
+                            height: _capturedMediaFile != null ? 280 : 220,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFF1453A3), Color(0xFF2E78D4)],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      const Color(0xFF1453A3).withOpacity(0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
                                 ),
-                                borderRadius: BorderRadius.circular(24),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF1453A3)
-                                        .withOpacity(0.3),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
+                              ],
+                            ),
+                            child: _capturedMediaFile != null
+                                ? Stack(
+                                    children: [
+                                      // Full gambar/video sebagai background
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(20),
+                                        child: _isMediaVideo
+                                            ? (_videoPreviewController !=
+                                                        null &&
+                                                    _videoPreviewController!
+                                                        .value.isInitialized)
+                                                ? Container(
+                                                    color: Colors.black,
+                                                    child: Center(
+                                                      child: AspectRatio(
+                                                        aspectRatio:
+                                                            _videoPreviewController!
+                                                                .value
+                                                                .aspectRatio,
+                                                        child: VideoPlayer(
+                                                            _videoPreviewController!),
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Container(
+                                                    color: Colors.black87,
+                                                    child: const Center(
+                                                      child: Icon(
+                                                          Icons.videocam,
+                                                          size: 80,
+                                                          color:
+                                                              Colors.white70),
+                                                    ),
+                                                  )
+                                            : Image.file(
+                                                _capturedMediaFile!,
+                                                width: double.infinity,
+                                                height: double.infinity,
+                                                fit: BoxFit.cover,
+                                              ),
+                                      ),
+                                      // Overlay gradient untuk teks
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                            colors: [
+                                              Colors.black.withOpacity(0.3),
+                                              Colors.black.withOpacity(0.7),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      // Badge/label di pojok kanan atas
+                                      Positioned(
+                                        top: 12,
+                                        right: 12,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: _isMediaVideo
+                                                ? const Color(0xFFE74C3C)
+                                                : const Color(0xFF66BB6A),
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black
+                                                    .withOpacity(0.3),
+                                                blurRadius: 8,
+                                              ),
+                                            ],
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                _isMediaVideo
+                                                    ? Icons.videocam
+                                                    : Icons.photo_camera,
+                                                size: 16,
+                                                color: Colors.white,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                _isMediaVideo
+                                                    ? 'Video'
+                                                    : 'Foto',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      // Tombol X untuk hapus/batal di pojok kiri atas
+                                      Positioned(
+                                        top: 12,
+                                        left: 12,
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            onTap: () {
+                                              setState(() {
+                                                _capturedMediaFile = null;
+                                                _isMediaVideo = false;
+                                                _videoPreviewController
+                                                    ?.dispose();
+                                                _videoPreviewController = null;
+                                              });
+                                              // Hapus dari cache juga
+                                              _imageCacheService.clearCache();
+                                            },
+                                            borderRadius:
+                                                BorderRadius.circular(20),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black
+                                                    .withOpacity(0.6),
+                                                shape: BoxShape.circle,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black
+                                                        .withOpacity(0.3),
+                                                    blurRadius: 8,
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Icon(
+                                                Icons.close,
+                                                size: 20,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      // Play icon untuk video
+                                      if (_isMediaVideo)
+                                        Center(
+                                          child: Container(
+                                            padding: const EdgeInsets.all(16),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  Colors.white.withOpacity(0.3),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.play_arrow,
+                                              size: 48,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      // Teks di bawah
+                                      Positioned(
+                                        bottom: 16,
+                                        left: 16,
+                                        right: 16,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'Bukti siap diupload!',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Tekan tombol "Buat Laporan" di bawah',
+                                              style: TextStyle(
+                                                color: Colors.white
+                                                    .withOpacity(0.9),
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.2),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.cloud_upload_outlined,
+                                          size: 56,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      const Text(
+                                        'Upload File',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'Pilih foto atau video dari perangkat',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.9),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Button Laporan dengan padding
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              _openCreateReport();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _capturedMediaFile != null
+                                  ? const Color(0xFF66BB6A)
+                                  : const Color(0xFF1453A3),
+                              foregroundColor: Colors.white,
+                              elevation: 3,
+                              shadowColor: (_capturedMediaFile != null
+                                      ? const Color(0xFF66BB6A)
+                                      : const Color(0xFF1453A3))
+                                  .withOpacity(0.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
                               ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(20),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.camera_alt,
-                                      size: 64,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Buat Laporan',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Ketuk untuk membuat laporan baru',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 14,
-                                    ),
-                                  ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (_capturedMediaFile != null) ...[
+                                  const Icon(Icons.check_circle, size: 18),
+                                  const SizedBox(width: 8),
                                 ],
-                              ),
+                                Text(
+                                  'Laporkan',
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -397,54 +923,64 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 30),
 
                       // Berita Terkini Section
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Berita Terkini',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const NewsScreen(),
-                                ),
-                              );
-                            },
-                            child: const Text(
-                              'Lihat Semua',
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Berita Terkini',
                               style: TextStyle(
-                                color: Color(0xFF1453A3),
-                                fontSize: 14,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
                               ),
                             ),
-                          ),
-                        ],
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const NewsScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Lihat Semua',
+                                style: TextStyle(
+                                  color: Color(0xFF1453A3),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 16),
 
                       // News Cards
-                      _buildNewsCard(
-                        title:
-                            'Politeknik Negeri Lampung Raih Akreditasi Unggul',
-                        date: '24 Desember 2024',
-                        category: 'Prestasi',
-                        imageUrl: 'https://via.placeholder.com/150',
-                      ),
-                      const SizedBox(height: 12),
-                      _buildNewsCard(
-                        title:
-                            'Workshop Pengembangan Aplikasi Mobile di Polinela',
-                        date: '22 Desember 2024',
-                        category: 'Kegiatan',
-                        imageUrl: 'https://via.placeholder.com/150',
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          children: [
+                            _buildNewsCard(
+                              title:
+                                  'Politeknik Negeri Lampung Raih Akreditasi Unggul',
+                              date: '24 Desember 2024',
+                              category: 'Prestasi',
+                              imageUrl: 'https://via.placeholder.com/150',
+                            ),
+                            const SizedBox(height: 12),
+                            _buildNewsCard(
+                              title:
+                                  'Workshop Pengembangan Aplikasi Mobile di Polinela',
+                              date: '22 Desember 2024',
+                              category: 'Kegiatan',
+                              imageUrl: 'https://via.placeholder.com/150',
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _buildNewsCard(
