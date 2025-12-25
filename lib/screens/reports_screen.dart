@@ -591,10 +591,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
             offset: const Offset(0, -5),
           ),
         ],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
       ),
       child: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -627,7 +623,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           }
         },
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
         selectedItemColor: const Color(0xFF1453A3),
         unselectedItemColor: Colors.grey,

@@ -611,11 +611,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     topRight: Radius.circular(30),
                   ),
                 ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.only(top: 20, bottom: 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                       // Card Upload File - Full Width
                       // Card dengan icon upload
                       Padding(
@@ -993,70 +996,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 30),
 
                       // Laporan Terbaru Header
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Laporan Terbaru',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ReportsScreen(),
-                                ),
-                              );
-                            },
-                            child: const Text(
-                              'Lihat Semua',
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Laporan Terbaru',
                               style: TextStyle(
-                                color: Color(0xFF1453A3),
-                                fontSize: 14,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
                               ),
                             ),
-                          ),
-                        ],
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ReportsScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Lihat Semua',
+                                style: TextStyle(
+                                  color: Color(0xFF1453A3),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 16),
 
                       // List Laporan
-                      _buildReportCard(
-                        title: 'Kecurangan Ujian Tengah Semester',
-                        status: 'Ujian',
-                        statusColor: const Color(0xFF9575CD),
-                        date: '23 Oktober 2025',
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Column(
+                          children: [
+                            _buildReportCard(
+                              title: 'Kecurangan Ujian Tengah Semester',
+                              status: 'Ujian',
+                              statusColor: const Color(0xFF9575CD),
+                              date: '23 Oktober 2025',
+                              icon: Icons.assignment,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildReportCard(
+                              title: 'Plagiarisme Tugas Akhir',
+                              status: 'Tugas',
+                              statusColor: const Color(0xFF4DD0E1),
+                              date: '22 Oktober 2025',
+                              icon: Icons.description,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildReportCard(
+                              title: 'Kerjasama Tidak Sah',
+                              status: 'Kerjasama',
+                              statusColor: const Color(0xFFFF8A65),
+                              date: '21 Oktober 2025',
+                              icon: Icons.people,
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      _buildReportCard(
-                        title: 'Plagiarisme Tugas Akhir',
-                        status: 'Tugas',
-                        statusColor: const Color(0xFF4DD0E1),
-                        date: '22 Oktober 2025',
-                      ),
-                      const SizedBox(height: 12),
-                      _buildReportCard(
-                        title: 'Kerjasama Tidak Sah',
-                        status: 'Kerjasama',
-                        statusColor: const Color(0xFFFF8A65),
-                        date: '21 Oktober 2025',
+                    ],
+                  ),
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+      
       bottomNavigationBar: _buildBottomNavBar(),
-    );
+      );
   }
 
   Widget _buildStatCard({
@@ -1217,15 +1238,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String status,
     required Color statusColor,
     required String date,
+    required IconData icon,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
+          // Icon container
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: statusColor,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1237,33 +1281,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: statusColor,
-                      fontWeight: FontWeight.w500,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        status,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: statusColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.access_time,
+                      size: 14,
+                      color: Colors.grey.shade500,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      date,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          Text(
-            date,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.black54,
-            ),
+          Icon(
+            Icons.chevron_right,
+            color: Colors.grey.shade400,
+            size: 24,
           ),
         ],
       ),
@@ -1281,16 +1343,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             offset: const Offset(0, -5),
           ),
         ],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
       ),
       child: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: _onNavBarTap,
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
         selectedItemColor: const Color(0xFF1453A3),
         unselectedItemColor: Colors.grey,
